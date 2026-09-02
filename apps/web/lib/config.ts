@@ -34,15 +34,15 @@ export const PRICE_POLL_MS = 3000;
 export const isConfigured = Boolean(pitFactoryAddress && collateralAddress);
 
 /**
- * The command that opens the next columns, for the chain this build points at.
+ * The command that keeps the next columns open, for the chain this build points at.
  *
- * The empty state used to name `tick` unconditionally, and `tick` targets Monad
- * testnet — so anyone running the board against a local Hardhat node was told to
- * send transactions to a public network that would not fill the board in front
- * of them. The app knows which chain it is on; it may as well say the right
- * thing.
+ * Two things this has to get right. `tick` targets Monad testnet and
+ * `tick:local` a local node, so naming the wrong one sends transactions to a
+ * public network that will not fill the board in front of you. And the roller is
+ * an operating loop, not a one-shot: a single pass buys five minutes and then
+ * the board empties again, so what belongs here is the watcher.
  */
 export const rollCommand =
   chain.id === 31337
-    ? "npm --prefix packages/contracts run tick:local"
-    : "npm --prefix packages/contracts run tick";
+    ? "TICK_WATCH=1 npm --prefix packages/contracts run tick:local"
+    : "TICK_WATCH=1 npm --prefix packages/contracts run tick";

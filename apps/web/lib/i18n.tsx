@@ -29,7 +29,7 @@ const dictionary = {
 
     "board.empty": "No cells in this range.",
     "board.emptyHint":
-      "The roller opens the next columns every minute. Run {command} to open them now.",
+      "Nothing is opening the next columns. Run {command} and the board stays open.",
     "board.realised": "Last {minutes} min",
     "board.now": "Now",
     "board.strike": "Strike",
