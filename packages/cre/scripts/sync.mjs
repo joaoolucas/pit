@@ -26,9 +26,10 @@ const config = JSON.parse(fs.readFileSync(configFile, "utf8"));
 const target = config.evms[0];
 target.pitFactoryAddress = deployment.pitFactory;
 target.receiverAddress = deployment.settlementReceiver;
+target.rollReceiverAddress = deployment.rollReceiver;
 
 fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-console.log(`${configName} -> factory ${target.pitFactoryAddress}, receiver ${target.receiverAddress}`);
+console.log(`${configName} -> factory ${target.pitFactoryAddress}, settle ${target.receiverAddress}, roll ${target.rollReceiverAddress}`);
 
 if (!deployment.creForwarder) {
   console.warn(

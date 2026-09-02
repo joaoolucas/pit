@@ -426,6 +426,56 @@ contract PitFactory is Ownable2Step, ReentrancyGuard {
         }
     }
 
+    /// @notice Which cells of a grid have not been opened yet.
+    ///
+    /// @dev The mirror of `pendingSettlement`, and it exists for the same reason:
+    ///      the CRE workflow has to know what to put in a report without carrying
+    ///      any state of its own. The chain is the state, and this is the query.
+    ///
+    ///      Takes the two axes rather than the cells, because a caller asking
+    ///      about eight columns of seven rows sends fifteen values instead of
+    ///      fifty-six pairs, and the cross product is cheap here.
+    ///
+    /// @param underlying keccak256 of the pair label, e.g. keccak256("BTC-USD").
+    /// @param ends       Column expiries to check. Ones already past are skipped:
+    ///                   opening a window that has closed would create a market
+    ///                   nobody can trade and settlement would have to clean up.
+    /// @param strikeE8s  Rows to check. The grid is the cross product of the two.
+    /// @param maxResults Cap on the answer, which is what bounds the gas of the
+    ///                   report built from it.
+    /// @return outEnds    Expiry of each missing cell.
+    /// @return outStrikes Strike of each missing cell, parallel to `outEnds`.
+    function missingWindows(
+        bytes32 underlying,
+        uint64[] calldata ends,
+        uint256[] calldata strikeE8s,
+        uint256 maxResults
+    ) external view returns (uint64[] memory outEnds, uint256[] memory outStrikes) {
+        outEnds = new uint64[](maxResults);
+        outStrikes = new uint256[](maxResults);
+
+        uint256 found;
+        for (uint256 c; c < ends.length && found < maxResults; ++c) {
+            uint64 endTs = ends[c];
+            if (endTs <= block.timestamp) continue;
+
+            for (uint256 r; r < strikeE8s.length && found < maxResults; ++r) {
+                uint256 strikeE8 = strikeE8s[r];
+                if (strikeE8 == 0) continue;
+                if (_windowIdByKey[windowKey(underlying, endTs, strikeE8)] != 0) continue;
+
+                outEnds[found] = endTs;
+                outStrikes[found] = strikeE8;
+                ++found;
+            }
+        }
+
+        assembly {
+            mstore(outEnds, found)
+            mstore(outStrikes, found)
+        }
+    }
+
     function windowKey(bytes32 underlying, uint64 endTs, uint256 strikeE8) public pure returns (bytes32) {
         return keccak256(abi.encode(underlying, endTs, strikeE8));
     }

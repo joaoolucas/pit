@@ -7,6 +7,8 @@
  *   1. abi.ts drifting from the compiled PitFactory
  *   2. config.*.json still pointing at the zero address after a redeploy
  *   3. price parsing losing a cent
+ *   4. ladder.ts drifting from @pit/core, which is the one thing that makes
+ *      keeping a second copy of the grid geometry acceptable
  *
  * Run it in CI and before every simulate.
  */
@@ -16,6 +18,8 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 
 import { parseE8, formatE8 } from "../settle-workflow/price.ts";
+import { strikeLadder, ladderStepUsd, upcomingWindowEnds, WINDOW_SECONDS } from "../settle-workflow/ladder.ts";
+import * as core from "../../core/src/windows.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const workflow = path.resolve(here, "../settle-workflow");
@@ -35,16 +39,20 @@ if (!fs.existsSync(artifact)) {
   const compiled = JSON.parse(fs.readFileSync(artifact, "utf8")).abi;
   const source = fs.readFileSync(path.join(workflow, "abi.ts"), "utf8");
 
-  const onchain = compiled.find((f) => f.type === "function" && f.name === "pendingSettlement");
-  if (!onchain) {
-    fail("PitFactory no longer has pendingSettlement — the workflow's only read is gone");
-  } else {
-    const signature = `pendingSettlement(${onchain.inputs.map((i) => i.type).join(",")})`;
-    const outputs = onchain.outputs.map((o) => o.type).join(",");
-    const declaresInputs = onchain.inputs.every((i) => source.includes(`"${i.type}"`));
-    const declaresOutput = source.includes(`"${outputs}"`);
+  for (const name of ["pendingSettlement", "missingWindows"]) {
+    const onchain = compiled.find((f) => f.type === "function" && f.name === name);
+    if (!onchain) {
+      fail(`PitFactory no longer has ${name} — the workflow reads it every pass`);
+      continue;
+    }
 
-    if (declaresInputs && declaresOutput) pass(`abi.ts matches ${signature} -> (${outputs})`);
+    const signature = `${name}(${onchain.inputs.map((i) => i.type).join(",")})`;
+    const outputs = onchain.outputs.map((o) => o.type).join(",");
+    const declaresName = source.includes(`"${name}"`);
+    const declaresInputs = onchain.inputs.every((i) => source.includes(`"${i.type}"`));
+    const declaresOutputs = onchain.outputs.every((o) => source.includes(`"${o.type}"`));
+
+    if (declaresName && declaresInputs && declaresOutputs) pass(`abi.ts matches ${signature} -> (${outputs})`);
     else fail(`abi.ts does not match the compiled ${signature} -> (${outputs})`);
   }
 }
@@ -57,7 +65,14 @@ for (const file of ["config.staging.json", "config.production.json"]) {
     fail(`${file}: evms[0] is missing`);
     continue;
   }
-  const zeros = ["pitFactoryAddress", "receiverAddress"].filter((key) => /^0x0{40}$/i.test(target[key] ?? ""));
+  const zeros = ["pitFactoryAddress", "receiverAddress", "rollReceiverAddress"].filter((key) =>
+    /^0x0{40}$/i.test(target[key] ?? ""),
+  );
+
+  for (const key of ["columns", "ladderRows", "ladderStepBps", "maxOpensPerReport"]) {
+    if (!Number.isInteger(target[key]) || target[key] <= 0) fail(`${file}: ${key} must be a positive integer`);
+  }
+  if (target.ladderRows % 2 === 0) fail(`${file}: ladderRows must be odd — the middle row is the up/down cell`);
   if (zeros.length > 0) {
     console.warn(`  warn  ${file}: ${zeros.join(", ")} still zero — run: npm run sync`);
   } else {
@@ -80,6 +95,37 @@ try {
   pass("price parsing keeps every cent and rejects junk");
 } catch (error) {
   fail(`price parsing: ${error.message}`);
+}
+
+// --- 4. the workflow's grid geometry still matches @pit/core --------------
+//
+// ladder.ts is a hand-kept copy, because a WASM workflow should not drag a
+// workspace package into its bundle for four pure functions. This is the price
+// of that decision: the copy has to be proved equal, not assumed equal.
+try {
+  assert.equal(WINDOW_SECONDS, core.WINDOW_SECONDS, "window size");
+
+  const prices = [1n, 900n, 4512n, 65123n, 77364n, 103998n, 250000n];
+  for (const usd of prices) {
+    const spotE8 = usd * 100000000n;
+    assert.equal(ladderStepUsd(spotE8, 5), core.ladderStepUsd(spotE8, 5), `step at $${usd}`);
+
+    for (const rows of [3, 7, 11]) {
+      assert.deepEqual(
+        strikeLadder(spotE8, rows, 5),
+        core.strikeLadder(spotE8, rows, 5),
+        `ladder at $${usd} x ${rows}`,
+      );
+    }
+  }
+
+  for (const now of [0, 1, 299, 300, 301, 1788000000]) {
+    assert.deepEqual(upcomingWindowEnds(now, 8), core.upcomingWindowEnds(now, 8), `columns from ${now}`);
+  }
+
+  pass("ladder.ts agrees with @pit/core on strikes, steps and columns");
+} catch (error) {
+  fail(`ladder.ts has drifted from @pit/core: ${error.message}`);
 }
 
 console.log(failures === 0 ? "\nWorkflow pre-flight passed." : `\n${failures} check(s) failed.`);

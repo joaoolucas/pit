@@ -74,13 +74,30 @@ async function main() {
   const receiver = await receiverContract.getAddress();
   console.log(`  Receiver     ${receiver}`);
 
+  // --- CRE roll receiver --------------------------------------------------
+  // The other half of the operating loop. A board of five-minute markets needs
+  // somebody to open the next columns every five minutes, and that used to be a
+  // script holding the operator key. This contract is the operator instead, and
+  // the only thing that can reach it is a report the DON signed.
+  const rollContract = await (
+    await ethers.getContractFactory("PitRollReceiver")
+  ).deploy(deployer.address, pitFactory, creForwarder ?? deployer.address);
+  await rollContract.waitForDeployment();
+  const rollReceiver = await rollContract.getAddress();
+  console.log(`  Roller       ${rollReceiver}`);
+
   if (creForwarder) {
     await (await factory.setSettler(receiver)).wait();
-    console.log(`  forwarder    ${creForwarder}  (settler -> receiver)`);
+    await (await factory.setOperator(rollReceiver)).wait();
+    console.log(`  forwarder    ${creForwarder}  (settler -> receiver, operator -> roller)`);
   } else {
-    console.log(`  forwarder    unset — settler stays ${deployer.address}`);
+    // Until a Forwarder exists the deploy key keeps both roles, so
+    // `tick:local` and `settle:manual` still work and a demo is never blocked
+    // on CRE being live.
+    console.log(`  forwarder    unset — settler and operator stay ${deployer.address}`);
     console.log(`               once CRE is deployed: CRE_FORWARDER=0x... and call`);
-    console.log(`               receiver.setForwarder(...) then factory.setSettler(${receiver})`);
+    console.log(`               receiver.setForwarder(...), roller.setForwarder(...),`);
+    console.log(`               factory.setSettler(${receiver}) and factory.setOperator(${rollReceiver})`);
   }
 
   const deployment: Deployment = {
@@ -93,9 +110,10 @@ async function main() {
     kuruRouter,
     pitFactory,
     settlementReceiver: receiver,
+    rollReceiver,
     creForwarder: creForwarder ?? null,
     settler: creForwarder ? receiver : settler,
-    operator,
+    operator: creForwarder ? rollReceiver : operator,
     startBlock: Math.max(startBlock, 0),
   };
   const file = writeDeployment(deployment);
@@ -105,6 +123,7 @@ async function main() {
   console.log(`PIT_FACTORY=${pitFactory}`);
   console.log(`PIT_COLLATERAL=${collateral}`);
   console.log(`PIT_SETTLEMENT_RECEIVER=${receiver}`);
+  console.log(`PIT_ROLL_RECEIVER=${rollReceiver}`);
   console.log(`ENVIO_START_BLOCK=${deployment.startBlock}`);
   console.log(`NEXT_PUBLIC_PIT_FACTORY=${pitFactory}`);
   console.log(`NEXT_PUBLIC_COLLATERAL=${collateral}`);

@@ -10,7 +10,13 @@
       "receiverAddress": "0x0000000000000000000000000000000000000000",
       "gasLimit": "1500000",
       "lookbackWindows": 60,
-      "maxWindowsPerReport": 12
+      "maxWindowsPerReport": 12,
+      "rollReceiverAddress": "0x0000000000000000000000000000000000000000",
+      "rollGasLimit": "12000000",
+      "columns": 8,
+      "ladderRows": 7,
+      "ladderStepBps": 5,
+      "maxOpensPerReport": 4
     }
   ]
 }

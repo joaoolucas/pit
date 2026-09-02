@@ -15,6 +15,7 @@ export type Deployment = {
   kuruRouter: string;
   pitFactory: string;
   settlementReceiver: string;
+  rollReceiver: string;
   creForwarder: string | null;
   settler: string;
   operator: string;
