@@ -11,6 +11,7 @@ import {
   formatMultiple,
   locateOnLadder,
   Outcome,
+  sizeToContracts,
   tileInk,
   WINDOW_SECONDS,
   type TileInk,
@@ -36,6 +37,15 @@ const TRACE_WIDTH = "28%";
 const BOARD_GAP = 6;
 
 export const cellId = (endTs: number, strikeE8: bigint) => `${endTs}:${strikeE8}`;
+
+/** Where the pointer is, and what is under it. */
+type Aim = {
+  row: number;
+  column: number;
+  /** Null on a slot the roller has not opened yet — the crosshair still draws. */
+  cell: BoardCell | null;
+  rect: DOMRect;
+};
 
 type Props = {
   /** Expiries, ascending. The first one that has not closed is the live column. */
@@ -77,6 +87,15 @@ export function Board({
   const { t } = useI18n();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [bodyHeight, setBodyHeight] = useState(0);
+  /**
+   * What the pointer is on.
+   *
+   * A chain is wide: the strike lives on the far right of the row and the expiry
+   * at the top of the column, so a tile in the middle of the board is a market
+   * you cannot name without tracing two lines with your finger. Holding the aim
+   * lets the board draw those lines for you — and lets the card say the rest.
+   */
+  const [aim, setAim] = useState<Aim | null>(null);
 
   useLayoutEffect(() => {
     const node = bodyRef.current;
@@ -103,6 +122,10 @@ export function Board({
   }, [cells]);
 
   const spotAt = spotE8 === null ? null : locateOnLadder(strikes, spotE8);
+
+  // The board scrolls under the pointer; a stale rectangle would leave the card
+  // floating over the wrong tile.
+  const clearAim = () => setAim(null);
 
   if (columns.length === 0 || strikes.length === 0) {
     return (
@@ -139,7 +162,7 @@ export function Board({
               endTs={endTs}
               now={now}
               live={index === liveIndex}
-              index={index}
+              aimed={aim?.column === index}
             />
           ))}
           <div className="flex items-end justify-end px-2 pb-2">
@@ -154,6 +177,8 @@ export function Board({
           as more board. */}
       <div
         ref={bodyRef}
+        onScroll={clearAim}
+        onMouseLeave={clearAim}
         className="board-scroll flex min-h-0 flex-1 overflow-y-auto px-1.5 pb-1"
       >
         <Trace
@@ -174,6 +199,7 @@ export function Board({
               <StrikeRow
                 key={strikeE8.toString()}
                 strikeE8={strikeE8}
+                row={row}
                 columns={columns}
                 cells={cells}
                 maxDepth={maxDepth}
@@ -183,6 +209,8 @@ export function Board({
                 spotE8={atm ? spotE8 : null}
                 selectedId={selectedId}
                 onSelect={onSelect}
+                aim={aim}
+                onAim={setAim}
               />
             );
           })}
@@ -190,6 +218,8 @@ export function Board({
       </div>
 
       <Legend />
+
+      {aim?.cell && <CellCard cell={aim.cell} rect={aim.rect} now={now} />}
     </div>
   );
 }
@@ -200,12 +230,12 @@ function ColumnHead({
   endTs,
   now,
   live,
-  index,
+  aimed,
 }: {
   endTs: number;
   now: number;
   live: boolean;
-  index: number;
+  aimed: boolean;
 }) {
   const { t } = useI18n();
   const clock = useClock();
@@ -219,11 +249,16 @@ function ColumnHead({
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-0.5 rounded-[18px] px-1 pb-2 pt-1.5 ${
+      className={`relative flex flex-col items-center gap-0.5 rounded-[18px] px-1 pb-2 pt-1.5 transition-colors ${
         live ? "bg-[color-mix(in_oklab,var(--color-live)_14%,transparent)]" : ""
-      }`}
+      } ${aimed ? "aimed-head" : ""}`}
     >
-      <span className="data text-[11px] text-[var(--color-foam-dim)]">{clock(endTs)}</span>
+      <span
+        className="data text-[11px]"
+        style={{ color: aimed ? "var(--color-foam)" : "var(--color-foam-dim)" }}
+      >
+        {clock(endTs)}
+      </span>
       <span
         className="readout text-[13px] leading-none"
         style={{
@@ -253,6 +288,7 @@ function ColumnHead({
 
 function StrikeRow({
   strikeE8,
+  row,
   columns,
   cells,
   maxDepth,
@@ -262,8 +298,11 @@ function StrikeRow({
   spotE8,
   selectedId,
   onSelect,
+  aim,
+  onAim,
 }: {
   strikeE8: bigint;
+  row: number;
   columns: number[];
   cells: Map<string, BoardCell>;
   maxDepth: bigint;
@@ -273,8 +312,11 @@ function StrikeRow({
   spotE8: bigint | null;
   selectedId: string | null;
   onSelect: (cell: BoardCell) => void;
+  aim: Aim | null;
+  onAim: (aim: Aim | null) => void;
 }) {
   const { t } = useI18n();
+  const aimedRow = aim?.row === row;
 
   return (
     <>
@@ -288,9 +330,12 @@ function StrikeRow({
             rowHeight={rowHeight}
             closed={endTs <= now}
             atm={atm}
+            row={row}
             column={index}
             selected={key === selectedId}
             onSelect={onSelect}
+            aimed={aimedRow || aim?.column === index}
+            onAim={onAim}
           />
         );
       })}
@@ -298,9 +343,9 @@ function StrikeRow({
       {/* The strike axis. The spot badge rides the at-the-money row, so the
           number every other strike is judged against is never a glance away. */}
       <div
-        className={`relative flex items-center justify-end gap-2 rounded-[18px] px-2 ${
+        className={`relative flex items-center justify-end gap-2 rounded-[18px] px-2 transition-colors ${
           atm ? "atm" : ""
-        }`}
+        } ${aimedRow ? "aimed-head" : ""}`}
         style={{ height: rowHeight }}
       >
         {spotE8 !== null && (
@@ -311,7 +356,10 @@ function StrikeRow({
             {e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
           </span>
         )}
-        <span className="readout text-[13px] text-[var(--color-foam-dim)]">
+        <span
+          className="readout text-[13px]"
+          style={{ color: aimedRow ? "var(--color-foam)" : "var(--color-foam-dim)" }}
+        >
           {e8ToUsd(strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
         </span>
       </div>
@@ -394,20 +442,31 @@ function Tile({
   rowHeight,
   closed,
   atm,
+  row,
   column,
   selected,
   onSelect,
+  aimed,
+  onAim,
 }: {
   cell: BoardCell | undefined;
   maxDepth: bigint;
   rowHeight: number;
   closed: boolean;
   atm: boolean;
+  row: number;
   column: number;
   selected: boolean;
   onSelect: (cell: BoardCell) => void;
+  aimed: boolean;
+  onAim: (aim: Aim | null) => void;
 }) {
   const { t } = useI18n();
+
+  // Pointer and keyboard both take aim, so tabbing the board reads the same as
+  // moving over it.
+  const take = (event: { currentTarget: HTMLElement }) =>
+    onAim({ row, column, cell: cell ?? null, rect: event.currentTarget.getBoundingClientRect() });
 
   // No market at this (expiry, strike) yet — the roller has not opened it. An
   // invisible div here made whole columns read as a broken board, so the slot
@@ -416,7 +475,8 @@ function Tile({
     return (
       <div
         aria-hidden
-        className={`slot rounded-[22px] ${atm ? "atm" : ""}`}
+        onMouseEnter={take}
+        className={`slot rounded-[22px] ${atm ? "atm" : ""} ${aimed ? "aimed" : ""}`}
         style={{ height: rowHeight }}
       />
     );
@@ -433,9 +493,12 @@ function Tile({
       onClick={() => onSelect(cell)}
       data-selected={selected}
       data-empty={ink.presence === 0}
+      onMouseEnter={take}
+      onFocus={take}
+      onBlur={() => onAim(null)}
       className={`tile sweep flex flex-col items-center justify-center gap-1 ${
         atm ? "atm" : ""
-      }`}
+      } ${aimed ? "aimed" : ""}`}
       style={
         {
           height: rowHeight,
@@ -443,7 +506,7 @@ function Tile({
           animationDelay: `${Math.min(column * 45, 400)}ms`,
         } as React.CSSProperties
       }
-      title={cell.title}
+      aria-label={cell.title}
     >
       {settled ? (
         <Resolved outcome={cell.outcome} />
@@ -457,7 +520,10 @@ function Tile({
           className="orb inline-block size-2.5 bg-[var(--color-live)]"
         />
       ) : cents === null ? (
-        <span className="text-[13px] leading-none text-[var(--color-foam-faint)]">–</span>
+        // "–" made an unquoted market look like a rendering gap. It is a market
+        // with nobody on either side, and the legend already promises that a
+        // hollow tile means exactly that — so it may as well say it.
+        <span className="label text-[9px] leading-none">{t("board.noDepth")}</span>
       ) : (
         <>
           <span
@@ -656,6 +722,103 @@ function Trace({
   );
 }
 
+/**
+ * What the pointer is on, said next to the pointer.
+ *
+ * The rail on the right holds the book, the tape and the ticket, and it is 360
+ * pixels away from the tile you are looking at — on a market with four minutes
+ * left, that is a trip. This is the fast read: what the claim is, what it costs
+ * on each side, how wide it is and who is behind it, printed against the tile
+ * itself. Clicking still opens the rail; this only saves you from having to.
+ *
+ * Fixed rather than absolute, because the board scrolls and an absolutely
+ * placed card would be clipped by the scroll container it lives in.
+ */
+function CellCard({ cell, rect, now }: { cell: BoardCell; rect: DOMRect; now: number }) {
+  const { t } = useI18n();
+  const clock = useClock();
+
+  const remaining = cell.endTs - now;
+  const settled = cell.outcome !== Outcome.Unresolved;
+  const yes = cell.cents;
+  const no = yes === null ? null : 100 - yes;
+  const contracts = Math.round(sizeToContracts(cell.depth));
+
+  const WIDTH = 216;
+  const GAP = 10;
+  // Flip to the left of the tile when there is no room to the right of it.
+  const room = typeof window === "undefined" ? Infinity : window.innerWidth - rect.right;
+  const left = room > WIDTH + GAP ? rect.right + GAP : Math.max(GAP, rect.left - WIDTH - GAP);
+  const top =
+    typeof window === "undefined"
+      ? rect.top
+      : Math.min(Math.max(GAP, rect.top), window.innerHeight - 168);
+
+  return (
+    <div
+      aria-hidden
+      className="panel pointer-events-none fixed z-40 rounded-[20px] px-3 py-2.5 shadow-[0_10px_0_rgba(20,8,28,0.32)]"
+      style={{ left, top, width: WIDTH }}
+    >
+      <p className="text-[12px] font-extrabold leading-snug text-[var(--color-foam)]">
+        {t("cell.claim", {
+          strike: `${e8ToUsd(cell.strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
+        })}
+      </p>
+      <p className="data mt-0.5 text-[10px] text-[var(--color-foam-faint)]">
+        {clock(cell.endTs)} ·{" "}
+        {settled || remaining <= 0
+          ? t("board.cardClosed")
+          : t("board.cardLeft", { clock: formatClock(remaining) })}
+      </p>
+
+      {yes === null ? (
+        <p className="label mt-2">{t("board.noDepth")}</p>
+      ) : (
+        <>
+          <div className="mt-2 flex items-baseline justify-between gap-2">
+            <Leg side="yes" cents={yes} />
+            <Leg side="no" cents={no!} />
+          </div>
+
+          <dl className="mt-2 flex flex-col gap-0.5 border-t rule pt-1.5">
+            {cell.widthCents !== null && (
+              <Fact label={t("board.cardSpread")} value={`${cell.widthCents}¢`} />
+            )}
+            <Fact label={t("board.cardDepth")} value={contracts.toLocaleString()} />
+            {cell.makers > 0 && (
+              <Fact label={t("board.cardMakers")} value={String(cell.makers)} />
+            )}
+          </dl>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Leg({ side, cents }: { side: "yes" | "no"; cents: number }) {
+  const { t } = useI18n();
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="label" style={{ color: `var(--color-${side})` }}>
+        {t(`ticket.${side}` as const)}
+      </span>
+      <span className="readout text-[20px] leading-none" style={{ color: `var(--color-${side})` }}>
+        {formatCents(cents)}
+      </span>
+    </span>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="label">{label}</dt>
+      <dd className="data text-[10.5px] text-[var(--color-foam-dim)]">{value}</dd>
+    </div>
+  );
+}
+
 export function BalloonCluster() {
   return (
     <span aria-hidden className="mb-1 flex items-end gap-1.5">
@@ -689,6 +852,11 @@ function Legend() {
       <span className="flex items-center gap-1.5">
         <span aria-hidden className="inline-block h-[3px] w-7 rounded-full bg-[var(--color-trace)]" />
         <span className="label">{t("board.legendTrace")}</span>
+      </span>
+
+      {/* The board is a grid of buttons and nothing about a grid says so. */}
+      <span className="label ml-auto text-[var(--color-foam-dim)]">
+        {t("board.legendHint")}
       </span>
     </div>
   );

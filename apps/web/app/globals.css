@@ -207,6 +207,41 @@ body {
   );
 }
 
+/*
+ * The crosshair.
+ *
+ * A chain is wide enough that a tile in the middle of it belongs to a strike and
+ * an expiry you cannot read without tracing two lines by eye. Aiming at one
+ * lights its whole row and column, and brightens the two heads that name it.
+ */
+.slot {
+  position: relative;
+}
+
+.tile.aimed::after,
+.slot.aimed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Behind the number, above the paint: .tile isolates, so -1 stays inside the
+     tile and never veils the one figure the board is for. */
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--color-foam) 9%, transparent);
+  pointer-events: none;
+}
+
+/*
+ * The two heads that name the aimed cell. These have to carry across the width
+ * of the board from the corner of your eye, so they get more than the tiles do:
+ * the tint sits under type that is already there, where the tiles' tint sits
+ * under paint that is competing with it.
+ */
+.aimed-head {
+  background: color-mix(in oklab, var(--color-foam) 15%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--color-foam) 22%, transparent);
+}
+
 /* --------------------------------------------------------------- controls --- */
 
 .btn-primary {
