@@ -89,17 +89,17 @@ export function RiskDialog({
       onClick={onDismiss}
     >
       <div
-        className="max-w-md rounded border border-[var(--color-line-bright)] bg-[var(--color-surface)] p-5"
+        className="max-w-md rounded border border-[var(--color-rule-bright)] bg-[var(--color-hull)] p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="risk-title" className="mb-3 text-[13px] font-semibold">
           {t("risk.title")}
         </h2>
-        <p className="mb-5 text-[12px] leading-relaxed text-[var(--color-ink-dim)]">{t("risk.body")}</p>
+        <p className="mb-5 text-[12px] leading-relaxed text-[var(--color-foam-dim)]">{t("risk.body")}</p>
         <button
           type="button"
           onClick={onAccept}
-          className="w-full rounded bg-[var(--color-accent)] py-2 text-[12px] font-medium text-[var(--color-void)]"
+          className="w-full rounded bg-[var(--color-trace)] py-2 text-[12px] font-medium text-[var(--color-deep)]"
         >
           {t("risk.accept")}
         </button>

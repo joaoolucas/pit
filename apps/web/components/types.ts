@@ -4,21 +4,27 @@ import type { RawCellState } from "@/lib/indexer";
 /**
  * One tile on the board.
  *
- * A window has two Kuru markets — YES and NO — and both are kept here, because
- * the honest read of a cell's probability sometimes comes from the leg that
- * actually has a book. See `impliedProbability` in Grid.tsx.
+ * A window has two Kuru markets — YES and NO — and both are kept, because the
+ * honest read of a cell's price sometimes comes from the leg that actually has a
+ * book: a NO market at 38¢ tells you the YES is 62¢ even when nobody has quoted
+ * the YES side at all.
  */
-export type GridCell = {
+export type BoardCell = {
   id: string;
   windowId: number;
   endTs: number;
   strikeE8: bigint;
   outcome: Outcome;
-  /** Mid of whichever leg is quoted, expressed as a YES probability. */
-  impliedProbability: number | null;
-  /** Half-width of the YES market, in probability. Null when one side is empty. */
-  spread: number | null;
+  /** The YES price in whole cents, from whichever leg is quoted. */
+  cents: number | null;
+  /** Market width in cents. Null when only one side is quoted. */
+  widthCents: number | null;
+  /** Total size resting across both legs, in Kuru size units. Paints the tile. */
+  depth: bigint;
+  /** Distinct addresses with a live order. */
   makers: number;
   volume: bigint;
+  /** Everything a hover should say, assembled once. */
+  title: string;
   legs: Record<Side, RawCellState | null>;
 };

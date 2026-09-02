@@ -1,96 +1,232 @@
 @import "tailwindcss";
 
 /*
- * Cell reads like a terminal because the person using it is reading a book, not
- * browsing. Three rules hold the whole thing together:
+ * Cell — "sounding"
+ * ---------------------------------------------------------------------------
+ * The board is an option chain: strikes down one axis, expiries across the
+ * other. That instrument is a century old and every derivatives trader reads it
+ * without being taught. Nobody had built one for five-minute binaries because
+ * the windows expired faster than the chain could be quoted.
  *
- *   1. Every number is monospace with tabular figures, so a column of prices is
- *      a column and a digit changing does not shift the row.
- *   2. Colour means one thing: green is YES, red is NO, amber is time running
- *      out. Nothing decorative is ever green or red.
- *   3. The background is near-black but not black, and slightly cool, so a
- *      genuinely white number reads as emphasis.
+ * Two ideas hold the visual language together.
+ *
+ * Depth is the material. A cell's hue is where the book prices it on a
+ * diverging scale anchored at 50 cents; its fill *intensity* is how much size is
+ * actually resting there. A cell nobody is quoting is drawn hollow — an outline,
+ * not a tile. A board that is half hollow looks broken to a designer and reads
+ * perfectly to a trader, because it is the one thing a payout tile can never
+ * tell you: where you can actually trade.
+ *
+ * The ground is water, not black. #08151C is a dark blue-green, the colour of a
+ * depth sounder, and it is the reason the mint and rose sit quietly instead of
+ * vibrating the way neon does on neutral black. "Depth" is the word for both
+ * things on this screen.
  */
 
 @theme {
-  --color-void: #06080b;
-  --color-surface: #0b0e13;
-  --color-raised: #11151c;
-  --color-line: #1c222c;
-  --color-line-bright: #2a3241;
+  /* Ground: a water column, darkest at the edges. */
+  --color-deep: #08151c;
+  --color-hull: #0c1c25;
+  --color-raised: #112832;
+  --color-rule: #1a3541;
+  --color-rule-bright: #27505f;
 
-  --color-ink: #e8ecf2;
-  --color-ink-dim: #9aa4b2;
-  --color-ink-faint: #5c6675;
+  /* Type. Cool white, because the ground is cool. */
+  --color-foam: #e8f3f5;
+  --color-foam-dim: #93aeb7;
+  --color-foam-faint: #4d6b77;
 
-  --color-yes: #35d295;
-  --color-yes-dim: #143d30;
-  --color-no: #ff5f6d;
-  --color-no-dim: #401820;
-  --color-live: #f5b642;
-  --color-accent: #6aa6ff;
+  /* The diverging probability scale. Mint is yes, rose is no, and they meet at
+     an even market — so a 52 and a 94 are never the same shade. */
+  --color-yes: #34e0a1;
+  --color-yes-deep: #0f4335;
+  --color-no: #ff5c7a;
+  --color-no-deep: #4a1a28;
 
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-  --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  /* Time running out. The only warm colour on the screen, so it cannot be
+     mistaken for a side. */
+  --color-live: #ffc24b;
+
+  /* The price trace. Pale sounder blue — never green or red, so the price is
+     never confused with a position. */
+  --color-trace: #7fdbff;
+
+  --font-display: var(--font-martian), ui-monospace, monospace;
+  --font-data: var(--font-plex-mono), ui-monospace, monospace;
+  --font-label: var(--font-plex-condensed), ui-sans-serif, system-ui, sans-serif;
 }
 
-html,
-body {
-  background: var(--color-void);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+html {
+  background: var(--color-deep);
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
+  color: var(--color-foam);
+  font-family: var(--font-label);
+  -webkit-font-smoothing: antialiased;
+  /* The water column: light falls off toward the edges. */
+  background:
+    radial-gradient(120% 80% at 50% 0%, #0e2632 0%, transparent 60%),
+    var(--color-deep);
 }
 
-/* Numbers. All of them. */
-.num {
-  font-family: var(--font-mono);
+/* ------------------------------------------------------------------ type --- */
+
+/* Every number on this screen. Tabular so a column of prices is a column and a
+   changing digit never shifts the row. */
+.data {
+  font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
+/* The few numbers that carry the decision: the multiple on a tile, spot, the
+   clock. Martian Mono is wide and engineered, so it is used sparingly and never
+   inside a table. */
+.readout {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
 .label {
+  font-family: var(--font-label);
   font-size: 10px;
-  letter-spacing: 0.09em;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-ink-faint);
+  color: var(--color-foam-faint);
 }
 
-.hairline {
-  border-color: var(--color-line);
+/* ----------------------------------------------------------------- board --- */
+
+.rule {
+  border-color: var(--color-rule);
 }
 
-/* A cell's fill is its implied probability: the more the book believes it, the
-   more it glows. Opacity carries the signal so the hue stays honest. */
-.cell {
+/*
+ * A tile. `--fill` is set per cell from (probability, depth): the hue says what
+ * the book believes, the alpha says how much is behind it.
+ */
+.tile {
   position: relative;
   isolation: isolate;
-  transition: border-color 120ms ease, transform 120ms ease;
+  background: var(--fill, transparent);
+  transition:
+    box-shadow 120ms ease,
+    background-color 200ms ease;
 }
 
-.cell:hover {
-  border-color: var(--color-line-bright);
+.tile:hover:not([data-empty="true"]) {
+  box-shadow: inset 0 0 0 1px var(--color-rule-bright);
 }
 
-.cell[data-selected="true"] {
-  border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
+.tile[data-selected="true"] {
+  box-shadow: inset 0 0 0 1px var(--color-trace);
+  z-index: 1;
 }
 
-/* Depth bars behind the book rows, drawn from the outside in so the mid stays
-   readable. */
-.depth-bar {
+.tile:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-trace);
+  z-index: 2;
+}
+
+/* Nothing resting here. Left hollow on purpose — see the note at the top. */
+.tile[data-empty="true"] {
+  background: transparent;
+}
+
+/* The at-the-money row: the "up/down" cell, and the one every other strike is
+   read against. */
+.atm {
+  background: color-mix(in oklab, var(--color-trace) 6%, transparent);
+}
+
+/* --------------------------------------------------------------- controls --- */
+
+/*
+ * One action per screen gets the solid button, and it names what happens: "Buy
+ * Yes at 62¢", not "Submit". Everything else is an outline.
+ */
+.btn-primary {
+  border-radius: 3px;
+  padding: 0.7rem 1rem;
+  font-family: var(--font-label);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-deep);
+  background: var(--color-trace);
+  transition: filter 120ms ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-primary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-outline {
+  border-radius: 3px;
+  border: 1px solid var(--color-rule);
+  padding: 0.45rem 0.75rem;
+  font-family: var(--font-label);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-foam-dim);
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--color-rule-bright);
+  color: var(--color-foam);
+}
+
+.btn-outline:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary:focus-visible,
+.btn-outline:focus-visible {
+  outline: 2px solid var(--color-trace);
+  outline-offset: 2px;
+}
+
+/* Number inputs: the spinner is noise in a trading form. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* --------------------------------------------------------------- the book --- */
+
+/* Depth bars sit behind the numbers and grow from the price column outward. */
+.depth {
   position: absolute;
   top: 1px;
   bottom: 1px;
+  left: 0;
   z-index: -1;
-  opacity: 0.16;
+  opacity: 0.18;
+  border-radius: 0 2px 2px 0;
 }
+
+/* ------------------------------------------------------------------ chrome -- */
 
 ::-webkit-scrollbar {
   width: 9px;
@@ -100,26 +236,51 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-line-bright);
+  background: var(--color-rule-bright);
   border-radius: 999px;
 }
 
-@keyframes flash-in {
+::selection {
+  background: color-mix(in oklab, var(--color-trace) 35%, transparent);
+}
+
+/* ------------------------------------------------------------------ motion -- */
+
+/* The chain arrives as a sweep, left to right, once. A board of markets that
+   are all counting down should look like it was scanned into place. */
+@keyframes sweep-in {
   from {
-    background-color: color-mix(in oklab, var(--color-accent) 22%, transparent);
+    opacity: 0;
+    transform: translateX(-6px);
   }
   to {
-    background-color: transparent;
+    opacity: 1;
+    transform: none;
   }
 }
 
-.flash {
-  animation: flash-in 700ms ease-out;
+.sweep {
+  animation: sweep-in 340ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+/* A print on the tape. One flash, on the cell that traded. */
+@keyframes print-flash {
+  from {
+    box-shadow: inset 0 0 0 1px var(--color-trace);
+  }
+  to {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+.printed {
+  animation: print-flash 600ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flash,
-  .cell {
+  .sweep,
+  .printed,
+  .tile {
     animation: none;
     transition: none;
   }

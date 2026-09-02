@@ -1,21 +1,27 @@
 # Cell
 
-**A prediction grid on Monad. Every cell is a five-minute YES/NO market with a real order book.**
+**An option chain for five-minute binaries, on Monad.**
 
-A live BTC chart is a board of cells. Each cell asks one question — *will BTC be
-above $76,750 at 10:50?* — and each cell is a pair of ERC-20s listed as spot
-markets on [Kuru](https://kuru.io)'s onchain CLOB. Click a cell and you get the
-live book, the tape, and who is standing on it. Place and cancel through Kuru.
+Strikes down one axis, expiries across the other, a price in every cell. That
+instrument is a century old and every derivatives trader reads it without being
+taught — and nobody had built one for short-horizon binaries, because the windows
+expire faster than the chain can be quoted. At 400ms blocks they can.
+
+Each cell asks one question — *will BTC be above $77,250 at 1:05?* — and each
+cell is a pair of ERC-20s listed as spot markets on [Kuru](https://kuru.io)'s
+onchain CLOB. Click one and you get the live book, the tape, and the address
+standing on it. Place, cancel, or **quote it yourself**, through Kuru.
 Settlement is a Chainlink CRE workflow writing onchain.
 
 No mock books. No static JSON. If Kuru is down, Cell is down.
 
 ![The board: five-minute columns, a $50 strike ladder for rows, BTC drawn across it, and one cell open with its live Kuru book](docs/img/grid.jpg)
 
-*Left: the board. The big number in a cell is what it pays; the line under it is the
-implied probability, the market width, and how many makers stand behind it. Right:
-one cell open — the live L2 book from the indexer, the spread, and the address
-quoting it.*
+*The board. The big number in a cell is what it pays; under it, what it costs.
+Colour is the side and the fill is how much size is resting — a cell nobody quotes
+is drawn hollow, because where you can actually trade is the one thing a payout
+tile can never tell you. Right: one cell open, with the YES · strike · NO spine,
+the live book from the indexer, and the two legs added up.*
 
 MIT licensed, public from commit 1.
 
@@ -29,17 +35,28 @@ Grid Arena and Outrive today, who read a tape and want to know what is resting a
 
 Not "crypto traders in general." The distinction decides the whole product:
 
-|                          | A casino tile                    | Cell                                            |
-| ------------------------ | -------------------------------- | ----------------------------------------------- |
-| What you see             | a multiplier                     | a multiplier, **and the book behind it**         |
-| Who you trade against    | the house                        | whoever is quoting — their address is on screen  |
-| Where the price comes from| a formula                        | the best bid and offer on a public CLOB          |
-| Whether you can make     | no                               | yes: post, get filled, get paid the spread       |
+|                     | Grid Arena                                      | Polymarket 5m                | Cell                                        |
+| ------------------- | ----------------------------------------------- | ---------------------------- | ------------------------------------------- |
+| Board              | time × direction, *or* a one-column strike ladder | one up/down market per window | **time × strike, together**                  |
+| The book           | "no depth"                                       | off-chain matching            | **a public onchain CLOB anyone can quote on** |
+| Can you make?      | no                                               | via their API                 | **yes, from the panel**                      |
+| You trade against  | the venue                                        | whoever the matcher paired    | **an address on your screen**                 |
 
-The headline number on a tile is `1.9x`, because that is how a trader decides.
-The line underneath it — `53% · 2.0w · 1` — is the implied probability, the market
-width in probability points, and how many makers are behind it. That last number
-is the one a casino cannot show you.
+The headline number on a tile is `2.5x`, because that is how a trader decides,
+and the ticket is priced the way every venue they already use prices one:
+dollars in, whole cents, **to win**. Nothing about the entry is novel on purpose.
+
+What *is* novel is the half underneath. Because YES and NO are two independent
+books rather than one AMM, their prices drift apart — and the panel adds them up:
+
+    41¢ + 61¢ = 102¢     2¢ of spread across both legs
+    97¢ +  2¢ =  99¢     buy both legs and lock 1¢
+
+The second line is a risk-free trade sitting on the screen. An AMM would never
+let it happen. That, and being able to post the quote instead of taking it, are
+the two things a payout tile structurally cannot do.
+
+Design decisions and what was rejected: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ---
 
@@ -273,11 +290,12 @@ Where this is being submitted, and which bounties it does and does not fit:
 | `packages/core`      | the one definition of a cell: window math, the strike ladder, Kuru tick conversions |
 | `packages/indexer`   | Envio HyperIndex — `config.yaml`, `schema.graphql`, handlers, folds, tests        |
 | `packages/cre`       | the Chainlink CRE settlement workflow                                            |
-| `apps/web`           | the grid, the cell panel, the ticket, the passkey notes                          |
-| `docs`               | architecture, liquidity, CRE and passkey notes                                   |
+| `apps/web`           | the board, the cell panel, the take/make ticket, the passkey notes               |
+| `docs`               | design, architecture, liquidity, the demo runbook, CRE and passkey notes         |
 
 ```bash
-npm run contracts:test     # 22 tests: issuance, settlement, void, an end-to-end fill
+npm test                   # 63 tests, no chain and no keys needed
+npm run contracts:test     # 22 of them: issuance, settlement, void, an end-to-end fill
 npm --prefix packages/indexer run check   # config vs. ABIs, then 8 fold tests
 npm --prefix packages/cre run check       # ABI drift, config addresses, price parsing
 npm run build              # the app

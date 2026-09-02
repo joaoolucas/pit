@@ -12,7 +12,13 @@ import assert from "node:assert/strict";
 
 
 import {
+  centsToTick,
   contractsToSize,
+  formatCents,
+  formatMultiple,
+  priceTicket,
+  tickToCents,
+  tileInk,
   MARKET_CONFIG,
   payoff,
   probToTick,
@@ -28,6 +34,7 @@ import {
   strikeLadder,
   upcomingWindowEnds,
   usdToE8,
+  visibleStrikes,
   windowEnd,
   windowStart,
   WINDOW_SECONDS,
@@ -251,4 +258,132 @@ test("the offset is monotonic as the price falls", () => {
     assert.ok(location.offset > previous, `offset must grow as price falls (at ${price})`);
     previous = location.offset;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Cents and dollars — the units at the edge of the app
+// ---------------------------------------------------------------------------
+
+test("ticks and cents round-trip", () => {
+  assert.equal(tickToCents(620_000n), 62);
+  assert.equal(centsToTick(62), 620_000n);
+  assert.equal(formatCents(62), "62¢");
+  // A tick between cents rounds to the nearest, and never leaves the grid.
+  assert.equal(tickToCents(625_000n), 63);
+  assert.equal(centsToTick(63) % 1_000n, 0n);
+});
+
+test("a dollar amount buys whole contracts and never overspends", () => {
+  // $25 at 62¢ buys 40 contracts and spends $24.80 — not $25.
+  const ticket = priceTicket(25, 62)!;
+  assert.equal(ticket.contracts, 40);
+  close(ticket.spend, 24.8);
+  assert.equal(ticket.toWin, 40);
+  close(ticket.profit, 15.2);
+
+  // Never rounds up past what was asked for.
+  for (const dollars of [1, 3, 7, 13, 99.99]) {
+    for (const cents of [1, 7, 33, 50, 62, 99]) {
+      const t = priceTicket(dollars, cents);
+      if (t) assert.ok(t.spend <= dollars + 1e-9, `${dollars} at ${cents} overspent`);
+    }
+  }
+});
+
+test("a ticket that cannot buy a single contract is not a ticket", () => {
+  assert.equal(priceTicket(0.5, 62), null, "50 cents does not buy a 62 cent contract");
+  assert.equal(priceTicket(0, 62), null);
+  assert.equal(priceTicket(25, 0), null);
+  assert.equal(priceTicket(Number.NaN, 62), null);
+});
+
+test("the multiple on a tile reads the way a trader says it", () => {
+  assert.equal(formatMultiple(50), "2x", "an even market pays 2x, not 2.00x");
+  assert.equal(formatMultiple(62), "1.61x");
+  assert.equal(formatMultiple(63), "1.59x");
+  assert.equal(formatMultiple(10), "10x");
+  assert.equal(formatMultiple(1), "100x");
+  assert.equal(formatMultiple(99), "1.01x");
+});
+
+// ---------------------------------------------------------------------------
+// How a tile reads — the board's signature
+// ---------------------------------------------------------------------------
+
+test("a cell with no price is painted with nothing", () => {
+  const ink = tileInk(null, 500n, 1_000n);
+  assert.equal(ink.side, "none");
+  assert.equal(ink.presence, 0, "an unpriced cell must stay hollow even if size is reported");
+});
+
+test("hue picks the side and conviction says how far from even", () => {
+  assert.equal(tileInk(94, 1n, 1n).side, "yes");
+  assert.equal(tileInk(6, 1n, 1n).side, "no");
+
+  close(tileInk(50, 1n, 1n).conviction, 0, "an even market has no conviction");
+  close(tileInk(100, 1n, 1n).conviction, 1);
+  close(tileInk(0, 1n, 1n).conviction, 1);
+  close(tileInk(75, 1n, 1n).conviction, 0.5);
+
+  // The point of the diverging scale: these two must not look alike.
+  assert.ok(tileInk(94, 1n, 1n).conviction > tileInk(52, 1n, 1n).conviction + 0.5);
+});
+
+test("presence is depth relative to the deepest cell on the board", () => {
+  assert.equal(tileInk(60, 0n, 1_000n).presence, 0, "nothing resting, nothing painted");
+  close(tileInk(60, 1_000n, 1_000n).presence, 1, "the deepest cell is fully present");
+  // Square-rooted, so a thin book is still visible rather than invisible.
+  assert.ok(tileInk(60, 100n, 10_000n).presence > 0.09);
+  close(tileInk(60, 2_500n, 10_000n).presence, 0.5);
+});
+
+test("presence never leaves [0, 1], whatever the indexer reports", () => {
+  for (const [depth, max] of [
+    [0n, 0n],
+    [5n, 0n],
+    [10_000n, 100n],
+    [1n, 1n],
+  ] as const) {
+    const { presence } = tileInk(60, depth, max);
+    assert.ok(presence >= 0 && presence <= 1, `presence ${presence} out of range`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Choosing which rows to show
+// ---------------------------------------------------------------------------
+
+test("a ladder that fits is shown whole", () => {
+  const strikes = strikeLadder(usdToE8(77_000));
+  assert.deepEqual(visibleStrikes(strikes, usdToE8(77_000), 9), strikes);
+});
+
+test("a long ladder is windowed around the price", () => {
+  // Twenty strikes, $50 apart, 77,950 down to 77,000.
+  const strikes = Array.from({ length: 20 }, (_, i) => usdToE8(77_950 - i * 50));
+
+  const rows = visibleStrikes(strikes, usdToE8(77_500), 9).map(e8ToUsd);
+  assert.equal(rows.length, 9);
+  assert.ok(rows.includes(77_500), "the row nearest the price must be on screen");
+  // Centred: four above, four below.
+  assert.equal(rows[4], 77_500);
+  // Still descending, still contiguous.
+  for (let i = 1; i < rows.length; i++) assert.equal(rows[i - 1]! - rows[i]!, 50);
+});
+
+test("a price at the edge of the ladder still returns a full window", () => {
+  const strikes = Array.from({ length: 20 }, (_, i) => usdToE8(77_950 - i * 50));
+
+  const high = visibleStrikes(strikes, usdToE8(79_000), 9).map(e8ToUsd);
+  assert.equal(high.length, 9, "clamped to the top, not truncated");
+  assert.equal(high[0], 77_950);
+
+  const low = visibleStrikes(strikes, usdToE8(70_000), 9).map(e8ToUsd);
+  assert.equal(low.length, 9, "clamped to the bottom, not truncated");
+  assert.equal(low[low.length - 1], 77_000);
+});
+
+test("with no price yet, the top of the ladder is shown", () => {
+  const strikes = Array.from({ length: 20 }, (_, i) => usdToE8(77_950 - i * 50));
+  assert.equal(visibleStrikes(strikes, null, 9).length, 9);
 });

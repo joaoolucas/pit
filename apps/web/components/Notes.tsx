@@ -107,19 +107,19 @@ export function Notes({ cellKey }: { cellKey: string }) {
   }, [session, text, cellKey]);
 
   if (!supported) {
-    return <p className="px-3 py-4 text-[11px] text-[var(--color-ink-faint)]">{t("notes.unsupported")}</p>;
+    return <p className="px-3 py-4 text-[11px] text-[var(--color-foam-faint)]">{t("notes.unsupported")}</p>;
   }
 
   if (!session) {
     return (
       <div className="flex flex-col gap-3 px-3 py-4">
-        <p className="text-[11px] leading-relaxed text-[var(--color-ink-faint)]">{t("notes.blurb")}</p>
+        <p className="text-[11px] leading-relaxed text-[var(--color-foam-faint)]">{t("notes.blurb")}</p>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => void open("unlock")}
             disabled={busy !== null}
-            className="flex-1 rounded border border-[var(--color-line-bright)] py-1.5 text-[11px] hover:border-[var(--color-accent)] disabled:opacity-50"
+            className="flex-1 rounded border border-[var(--color-rule-bright)] py-1.5 text-[11px] hover:border-[var(--color-trace)] disabled:opacity-50"
           >
             {busy === "unlock" ? t("notes.unlocking") : t("notes.unlock")}
           </button>
@@ -127,7 +127,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
             type="button"
             onClick={() => void open("enroll")}
             disabled={busy !== null}
-            className="rounded border hairline px-3 py-1.5 text-[11px] text-[var(--color-ink-dim)] hover:border-[var(--color-line-bright)] disabled:opacity-50"
+            className="rounded border rule px-3 py-1.5 text-[11px] text-[var(--color-foam-dim)] hover:border-[var(--color-rule-bright)] disabled:opacity-50"
           >
             {busy === "enroll" ? t("notes.unlocking") : t("notes.enroll")}
           </button>
@@ -140,7 +140,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
   return (
     <div className="flex flex-col gap-2 px-3 py-3">
       <div className="flex items-baseline justify-between">
-        <span className="num text-[10px] text-[var(--color-ink-faint)]">
+        <span className="data text-[10px] text-[var(--color-foam-faint)]">
           {t("notes.crossDevice", { vault: session.vaultId.slice(0, 8) })}
         </span>
         <button
@@ -150,7 +150,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
             setText("");
             forgetCredential();
           }}
-          className="text-[10px] text-[var(--color-ink-faint)] hover:text-[var(--color-ink-dim)]"
+          className="text-[10px] text-[var(--color-foam-faint)] hover:text-[var(--color-foam-dim)]"
         >
           {t("notes.lock")}
         </button>
@@ -164,7 +164,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
         }}
         placeholder={t("notes.placeholder")}
         rows={5}
-        className="w-full resize-y rounded border hairline bg-[var(--color-void)] px-2 py-1.5 text-[12px] leading-relaxed outline-none focus:border-[var(--color-line-bright)]"
+        className="w-full resize-y rounded border rule bg-[var(--color-deep)] px-2 py-1.5 text-[12px] leading-relaxed outline-none focus:border-[var(--color-rule-bright)]"
       />
 
       <div className="flex items-center justify-between">
@@ -173,7 +173,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
           type="button"
           onClick={() => void save()}
           disabled={busy !== null || !dirty}
-          className="rounded border border-[var(--color-line-bright)] px-3 py-1 text-[11px] hover:border-[var(--color-accent)] disabled:opacity-40"
+          className="rounded border border-[var(--color-rule-bright)] px-3 py-1 text-[11px] hover:border-[var(--color-trace)] disabled:opacity-40"
         >
           {busy === "save" ? t("notes.saving") : t("notes.save")}
         </button>

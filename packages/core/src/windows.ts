@@ -219,3 +219,39 @@ export function normalCdf(x: number): number {
       Math.exp(-z * z);
   return 0.5 * (1 + sign * y);
 }
+
+/**
+ * The rows worth showing, centred on the price.
+ *
+ * The roller opens a fresh ladder every minute, so over an hour the union of
+ * strikes across the visible columns grows well past what fits on a screen — and
+ * the ones far from spot are the ones nobody trades. This keeps the window of
+ * rows around the money and drops the rest, which is what an option chain does
+ * when a trader asks for "ten strikes either side".
+ *
+ * `strikesE8` must be sorted highest first, which is how the board renders them.
+ */
+export function visibleStrikes(
+  strikesE8: readonly bigint[],
+  spotE8: bigint | null,
+  rows = DEFAULT_LADDER_ROWS + 2,
+): bigint[] {
+  if (strikesE8.length <= rows) return [...strikesE8];
+  if (spotE8 === null) return strikesE8.slice(0, rows);
+
+  // The row nearest the price, then a window centred on it.
+  let nearest = 0;
+  let best = -1n;
+  for (let i = 0; i < strikesE8.length; i++) {
+    const strike = strikesE8[i]!;
+    const distance = strike > spotE8 ? strike - spotE8 : spotE8 - strike;
+    if (best < 0n || distance < best) {
+      best = distance;
+      nearest = i;
+    }
+  }
+
+  const half = Math.floor(rows / 2);
+  const start = Math.min(Math.max(nearest - half, 0), strikesE8.length - rows);
+  return strikesE8.slice(start, start + rows);
+}

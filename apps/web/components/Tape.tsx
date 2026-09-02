@@ -3,7 +3,7 @@
 import { chain } from "@/lib/config";
 import { useI18n } from "@/lib/i18n";
 import type { RawFill, RawFlow } from "@/lib/indexer";
-import { shortAddress, sizeToContracts, tickToProb } from "@cell/core";
+import { formatCents, shortAddress, sizeToContracts, tickToCents } from "@cell/core";
 
 /**
  * The tape.
@@ -16,7 +16,7 @@ export function Tape({ fills }: { fills: RawFill[] }) {
   const { t } = useI18n();
 
   if (fills.length === 0) {
-    return <p className="px-3 py-6 text-center text-[11px] text-[var(--color-ink-faint)]">{t("cell.noFills")}</p>;
+    return <p className="px-3 py-6 text-center text-[11px] text-[var(--color-foam-faint)]">{t("cell.noFills")}</p>;
   }
 
   return (
@@ -33,20 +33,20 @@ export function Tape({ fills }: { fills: RawFill[] }) {
             rel="noreferrer"
             className="grid grid-cols-[auto_1fr_auto_auto] items-baseline gap-3 px-3 py-[3px] hover:bg-[var(--color-raised)]"
           >
-            <span className="num text-[10px] text-[var(--color-ink-faint)]">
+            <span className="data text-[10px] text-[var(--color-foam-faint)]">
               {new Date(Number(fill.timestamp) * 1000).toLocaleTimeString(undefined, {
                 hour12: false,
               })}
             </span>
-            <span className="num text-[11px]" style={{ color: colour }}>
-              {tickToProb(BigInt(fill.price)).toFixed(3)}
+            <span className="data text-[11px]" style={{ color: colour }}>
+              {formatCents(tickToCents(BigInt(fill.price)))}
             </span>
-            <span className="num text-[11px] text-[var(--color-ink-dim)]">
+            <span className="data text-[11px] text-[var(--color-foam-dim)]">
               {sizeToContracts(BigInt(fill.filledSize)).toLocaleString(undefined, {
                 maximumFractionDigits: 0,
               })}
             </span>
-            <span className="num text-[10px] text-[var(--color-ink-faint)]">
+            <span className="data text-[10px] text-[var(--color-foam-faint)]">
               {shortAddress(takerBought ? fill.taker : fill.maker, 3)}
             </span>
           </a>
@@ -68,7 +68,7 @@ export function FlowChart({ flow }: { flow: RawFlow[] }) {
 
   if (flow.length < 2) {
     return (
-      <p className="px-3 py-6 text-center text-[11px] text-[var(--color-ink-faint)]">{t("cell.noFills")}</p>
+      <p className="px-3 py-6 text-center text-[11px] text-[var(--color-foam-faint)]">{t("cell.noFills")}</p>
     );
   }
 
@@ -95,7 +95,7 @@ export function FlowChart({ flow }: { flow: RawFlow[] }) {
     <div className="px-3 py-3">
       <div className="mb-1.5 flex items-baseline justify-between">
         <span className="label">{t("cell.cvd")}</span>
-        <span className="num text-[11px]" style={{ color: colour }}>
+        <span className="data text-[11px]" style={{ color: colour }}>
           {last > 0 ? "+" : ""}
           {sizeToContracts(BigInt(Math.trunc(last))).toLocaleString(undefined, {
             maximumFractionDigits: 0,
@@ -108,7 +108,7 @@ export function FlowChart({ flow }: { flow: RawFlow[] }) {
           x2={width}
           y1={zeroY}
           y2={zeroY}
-          stroke="var(--color-line-bright)"
+          stroke="var(--color-rule-bright)"
           strokeWidth={0.4}
         />
         <polyline
@@ -128,7 +128,7 @@ export function Makers({ makers }: { makers: { owner: string; liveOrders: number
   const { t } = useI18n();
 
   if (makers.length === 0) {
-    return <p className="px-3 py-4 text-center text-[11px] text-[var(--color-ink-faint)]">{t("cell.noMakers")}</p>;
+    return <p className="px-3 py-4 text-center text-[11px] text-[var(--color-foam-faint)]">{t("cell.noMakers")}</p>;
   }
 
   return (
@@ -139,11 +139,11 @@ export function Makers({ makers }: { makers: { owner: string; liveOrders: number
             href={`${chain.explorerUrl}/address/${maker.owner}`}
             target="_blank"
             rel="noreferrer"
-            className="num text-[11px] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+            className="data text-[11px] text-[var(--color-foam-dim)] hover:text-[var(--color-foam)]"
           >
             {shortAddress(maker.owner)}
           </a>
-          <span className="num text-[11px] text-[var(--color-ink-faint)]">
+          <span className="data text-[11px] text-[var(--color-foam-faint)]">
             {sizeToContracts(BigInt(maker.restingSize)).toLocaleString(undefined, {
               maximumFractionDigits: 0,
             })}
