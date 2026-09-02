@@ -242,3 +242,54 @@ describe("CellFactory", () => {
 // Small matchers so the assertions above read like sentences.
 const anyAddress = (value: string) => ethers.isAddress(value) && value !== ethers.ZeroAddress;
 const anyUint = (value: bigint) => value > 0n;
+
+describe("CellFactory.pendingSettlement", () => {
+  // The Chainlink CRE workflow's only read. It has to be exactly right, because a
+  // window it fails to report is a window that sits unsettled until someone voids it.
+  let owner: HardhatEthersSigner;
+  let settler: HardhatEthersSigner;
+  let factory: CellFactory;
+  let endTs: number;
+
+  beforeEach(async () => {
+    [owner, settler] = await ethers.getSigners();
+    const usdc = await (await ethers.getContractFactory("MockERC20")).deploy("USD Coin", "USDC", 6);
+    const router = await (await ethers.getContractFactory("MockKuruRouter")).deploy();
+    factory = await (
+      await ethers.getContractFactory("CellFactory")
+    ).deploy(owner.address, await usdc.getAddress(), await router.getAddress(), settler.address, owner.address);
+
+    const startTs = (await time.latest()) + 10;
+    endTs = startTs + 300;
+    // One column of three strikes closing at endTs, plus one that closes later.
+    for (const strike of [64_000n * E8, 65_000n * E8, 66_000n * E8]) {
+      await factory.createWindow(BTC_USD, startTs, endTs, strike);
+    }
+    await factory.createWindow(BTC_USD, startTs, endTs + 300, 65_000n * E8);
+  });
+
+  it("returns nothing while every window is still open", async () => {
+    expect(await factory.pendingSettlement(50, 10)).to.deep.equal([]);
+  });
+
+  it("returns only closed, unresolved windows", async () => {
+    await time.increaseTo(endTs + 1);
+    const pending = await factory.pendingSettlement(50, 10);
+    expect([...pending].map(Number).sort()).to.deep.equal([0, 1, 2]); // not #3, it closes later
+
+    await factory.connect(settler).settle(1, 65_500n * E8);
+    const after = await factory.pendingSettlement(50, 10);
+    expect([...after].map(Number).sort()).to.deep.equal([0, 2]);
+  });
+
+  it("respects maxResults, so one report never grows unbounded", async () => {
+    await time.increaseTo(endTs + 1);
+    expect((await factory.pendingSettlement(50, 2)).length).to.equal(2);
+  });
+
+  it("respects lookback, scanning backwards from the newest window", async () => {
+    await time.increaseTo(endTs + 1);
+    // Only the last two windows are scanned: #3 (still open) and #2 (closed).
+    expect([...(await factory.pendingSettlement(2, 10))].map(Number)).to.deep.equal([2]);
+  });
+});

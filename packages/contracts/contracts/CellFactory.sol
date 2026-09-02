@@ -398,6 +398,34 @@ contract CellFactory is Ownable2Step, ReentrancyGuard {
         }
     }
 
+    /// @notice Windows that have closed and are still unresolved.
+    /// @dev This exists for the Chainlink CRE workflow. Reading every window every
+    ///      30 seconds to find the two or three that just closed is wasteful, and
+    ///      paging through them off-chain would make the workflow stateful. Scanning
+    ///      backwards is right because windows are created in `endTs` order, so the
+    ///      ones that just closed are always near the end of the array.
+    /// @param lookback   How many of the most recent windows to scan.
+    /// @param maxResults Cap on the returned batch, which is also the cap on how many
+    ///                   settlements one CRE report can carry.
+    function pendingSettlement(uint256 lookback, uint256 maxResults) external view returns (uint256[] memory ids) {
+        uint256 total = _windows.length;
+        uint256 scan = lookback < total ? lookback : total;
+        ids = new uint256[](maxResults);
+
+        uint256 found;
+        for (uint256 i; i < scan && found < maxResults; ++i) {
+            uint256 windowId = total - 1 - i;
+            Window storage w = _windows[windowId];
+            if (w.outcome != Outcome.Unresolved) continue;
+            if (w.endTs > block.timestamp) continue;
+            ids[found++] = windowId;
+        }
+
+        assembly {
+            mstore(ids, found)
+        }
+    }
+
     function windowKey(bytes32 underlying, uint64 endTs, uint256 strikeE8) public pure returns (bytes32) {
         return keccak256(abi.encode(underlying, endTs, strikeE8));
     }

@@ -270,6 +270,44 @@ export const mockKuruOrderBookAbi = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint32[]",
+        "name": "buyPrices",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "uint96[]",
+        "name": "buySizes",
+        "type": "uint96[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "sellPrices",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "uint96[]",
+        "name": "sellSizes",
+        "type": "uint96[]"
+      },
+      {
+        "internalType": "uint40[]",
+        "name": "orderIdsToCancel",
+        "type": "uint40[]"
+      },
+      {
+        "internalType": "bool",
+        "name": "postOnly",
+        "type": "bool"
+      }
+    ],
+    "name": "batchUpdate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "bestBidAsk",
     "outputs": [

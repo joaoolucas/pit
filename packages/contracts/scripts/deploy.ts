@@ -61,6 +61,28 @@ async function main() {
   console.log(`  settler      ${settler}   (set to the CRE Forwarder before going live)`);
   console.log(`  operator     ${operator}`);
 
+  // --- CRE settlement receiver -------------------------------------------
+  // The Chainlink Forwarder delivers the DON's signed report here, and this
+  // contract is the only thing allowed to call settle. Until a Forwarder address
+  // is known we deploy it but leave the factory's settler on the deploy key, so
+  // `npm run settle:manual` still works and a demo is never blocked on CRE.
+  const creForwarder = process.env.CRE_FORWARDER?.trim();
+  const receiverContract = await (
+    await ethers.getContractFactory("CellSettlementReceiver")
+  ).deploy(deployer.address, cellFactory, creForwarder ?? deployer.address);
+  await receiverContract.waitForDeployment();
+  const receiver = await receiverContract.getAddress();
+  console.log(`  Receiver     ${receiver}`);
+
+  if (creForwarder) {
+    await (await factory.setSettler(receiver)).wait();
+    console.log(`  forwarder    ${creForwarder}  (settler -> receiver)`);
+  } else {
+    console.log(`  forwarder    unset — settler stays ${deployer.address}`);
+    console.log(`               once CRE is deployed: CRE_FORWARDER=0x... and call`);
+    console.log(`               receiver.setForwarder(...) then factory.setSettler(${receiver})`);
+  }
+
   const deployment: Deployment = {
     chainId,
     network: network.name,
@@ -70,7 +92,9 @@ async function main() {
     collateralDecimals: decimals,
     kuruRouter,
     cellFactory,
-    settler,
+    settlementReceiver: receiver,
+    creForwarder: creForwarder ?? null,
+    settler: creForwarder ? receiver : settler,
     operator,
     startBlock: Math.max(startBlock, 0),
   };
@@ -80,6 +104,7 @@ async function main() {
   console.log("\nPaste into .env:");
   console.log(`CELL_FACTORY=${cellFactory}`);
   console.log(`CELL_COLLATERAL=${collateral}`);
+  console.log(`CELL_SETTLEMENT_RECEIVER=${receiver}`);
   console.log(`ENVIO_START_BLOCK=${deployment.startBlock}`);
   console.log(`NEXT_PUBLIC_CELL_FACTORY=${cellFactory}`);
   console.log(`NEXT_PUBLIC_COLLATERAL=${collateral}`);

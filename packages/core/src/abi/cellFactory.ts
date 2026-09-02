@@ -884,6 +884,30 @@ export const cellFactoryAbi = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "lookback",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxResults",
+        "type": "uint256"
+      }
+    ],
+    "name": "pendingSettlement",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "ids",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "windowId",
         "type": "uint256"
       }

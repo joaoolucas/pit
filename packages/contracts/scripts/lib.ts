@@ -14,6 +14,8 @@ export type Deployment = {
   collateralDecimals: number;
   kuruRouter: string;
   cellFactory: string;
+  settlementReceiver: string;
+  creForwarder: string | null;
   settler: string;
   operator: string;
   startBlock: number;

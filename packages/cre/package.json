@@ -1,0 +1,15 @@
+{
+  "name": "@cell/cre",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Chainlink CRE workflow that settles closed Cell windows from an offchain reference price and the onchain clock.",
+  "scripts": {
+    "check": "node --experimental-strip-types scripts/check.mjs",
+    "sync": "node scripts/sync.mjs",
+    "simulate": "cre workflow simulate settle-workflow --target staging-settings",
+    "deploy": "cre workflow deploy settle-workflow --target staging-settings",
+    "activate": "cre workflow activate settle-workflow --target staging-settings"
+  }
+}
