@@ -68,14 +68,36 @@ export function RiskDialog({
   onDismiss: () => void;
 }) {
   const { t } = useI18n();
+  const accept = useRef<HTMLButtonElement>(null);
 
+  /**
+   * A modal that does not take the focus is a modal a keyboard cannot reach:
+   * Tab would walk the board behind it, and the one button that dismisses it
+   * would be somewhere past the end of the page. Focus goes to Understood on
+   * open, stays inside while it is up, and returns to whatever opened it.
+   */
   useEffect(() => {
     if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    accept.current?.focus();
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onDismiss();
+      if (event.key === "Escape") {
+        onDismiss();
+        return;
+      }
+      // One focusable element, so Tab has nowhere else to go.
+      if (event.key === "Tab") {
+        event.preventDefault();
+        accept.current?.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
   }, [open, onDismiss]);
 
   if (!open) return null;
@@ -97,6 +119,7 @@ export function RiskDialog({
         </h2>
         <p className="mb-5 text-[14px] leading-relaxed text-[var(--color-foam-dim)]">{t("risk.body")}</p>
         <button
+          ref={accept}
           type="button"
           onClick={onAccept}
           className="btn-primary w-full"

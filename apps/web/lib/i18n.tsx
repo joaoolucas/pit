@@ -30,7 +30,7 @@ const dictionary = {
 
     "board.empty": "Nenhuma célula neste intervalo.",
     "board.emptyHint":
-      "O roller abre as próximas colunas a cada minuto. Rode npm run tick para abrir agora.",
+      "O roller abre as próximas colunas a cada minuto. Rode npm --prefix packages/contracts run tick para abrir agora.",
     "board.realised": "Últimos {minutes} min",
     "board.now": "Agora",
     "board.strike": "Strike",
@@ -151,7 +151,7 @@ const dictionary = {
 
     "board.empty": "No cells in this range.",
     "board.emptyHint":
-      "The roller opens the next columns every minute. Run npm run tick to open them now.",
+      "The roller opens the next columns every minute. Run npm --prefix packages/contracts run tick to open them now.",
     "board.realised": "Last {minutes} min",
     "board.now": "Now",
     "board.strike": "Strike",
@@ -293,6 +293,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A screen reader reads the page in whatever `lang` says, so a Portuguese
+  // board announced as English is not a nicety — it is unintelligible.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     try {
@@ -320,4 +326,24 @@ export function useI18n(): I18nState {
   const context = useContext(I18nContext);
   if (!context) throw new Error("useI18n must be used inside <I18nProvider>");
   return context;
+}
+
+/**
+ * Clock formatting that follows the toggle, not the browser.
+ *
+ * Someone reading the board in Portuguese expects 14:35, and getting 02:35 PM
+ * on half the screen while the other half speaks Portuguese is the seam that
+ * makes a terminal feel machine-translated. Prices stay en-US on purpose — they
+ * are dollars.
+ */
+export function useClock(): (unixSeconds: number) => string {
+  const { locale } = useI18n();
+  return useCallback(
+    (unixSeconds: number) =>
+      new Date(unixSeconds * 1000).toLocaleTimeString(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [locale],
+  );
 }

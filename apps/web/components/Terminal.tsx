@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { GRID_POLL_MS, UNDERLYING } from "@/lib/config";
-import { useI18n } from "@/lib/i18n";
+import { useClock, useI18n } from "@/lib/i18n";
 import { GRID_QUERY, usePolledQuery, type RawCellState } from "@/lib/indexer";
 import { useCandles, useNow, useSpot } from "@/lib/usePrice";
 import { BalloonCluster, Board, cellId } from "./Board";
@@ -34,6 +34,7 @@ const FUTURE_COLUMNS = 7;
 
 export function Terminal() {
   const { t } = useI18n();
+  const clock = useClock();
   const now = useNow();
   const { priceE8 } = useSpot(UNDERLYING);
   const candles = useCandles(UNDERLYING);
@@ -104,7 +105,7 @@ export function Terminal() {
         depth,
         makers,
         volume,
-        title: describe(t, endTs, strikeE8, read.cents, read.widthCents, makers),
+        title: describe(t, clock(endTs), strikeE8, read.cents, read.widthCents, makers),
         legs,
       });
     }
@@ -113,7 +114,7 @@ export function Terminal() {
       cells: byCell,
       allStrikes: [...strikeSet.values()].sort((a, b) => (b > a ? 1 : b < a ? -1 : 0)),
     };
-  }, [data, t]);
+  }, [data, t, clock]);
 
   /**
    * The roller opens a fresh ladder every minute, so an hour of drift leaves far
@@ -143,8 +144,12 @@ export function Terminal() {
         onOpenRisk={risk.show}
       />
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 p-2 pt-2 lg:grid-cols-[1fr_360px] lg:gap-2">
-        <section className="min-h-0 overflow-hidden">
+      {/* Two panes side by side once there is room for both. Below that the
+          board keeps most of the screen and the opened cell sits under it, in a
+          column that scrolls — stacking them inside a locked viewport height
+          left the panel squashed to nothing with no way to reach it. */}
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-rows-1 lg:gap-2 lg:overflow-hidden lg:grid-cols-[1fr_360px]">
+        <section className="min-h-[26rem] overflow-hidden lg:min-h-0">
           {error && !data ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
               <p className="text-[13px] text-[var(--color-no)]">
@@ -173,7 +178,9 @@ export function Terminal() {
         </section>
 
         {selected ? (
-          <CellPanel cell={selected} now={now} onRequireRisk={risk.require} />
+          <div className="min-h-[32rem] lg:min-h-0">
+            <CellPanel cell={selected} now={now} onRequireRisk={risk.require} />
+          </div>
         ) : (
           <aside className="panel hidden flex-col items-center justify-center gap-3 rounded-[28px] p-10 text-center shadow-[0_8px_0_rgba(20,8,28,0.28)] lg:flex">
             <BalloonCluster />
@@ -225,18 +232,14 @@ function priceCell(legs: Record<Side, RawCellState | null>): {
 /** Everything a hover should say about a tile, assembled once. */
 function describe(
   t: ReturnType<typeof useI18n>["t"],
-  endTs: number,
+  time: string,
   strikeE8: bigint,
   cents: number | null,
   widthCents: number | null,
   makers: number,
 ): string {
   const claim = t("cell.claim", {
-    strike: `$${e8ToUsd(strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-  });
-  const time = new Date(endTs * 1000).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
+    strike: `${e8ToUsd(strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
   });
 
   const parts = [`${claim} · ${t("cell.closes", { time })}`];

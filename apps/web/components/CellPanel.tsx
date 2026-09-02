@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { CELL_POLL_MS, chain, UNDERLYING } from "@/lib/config";
-import { useI18n } from "@/lib/i18n";
+import { useClock, useI18n } from "@/lib/i18n";
 import {
   CELL_QUERY,
   usePolledQuery,
@@ -63,6 +63,7 @@ export function CellPanel({
   onRequireRisk: () => Promise<boolean>;
 }) {
   const { t } = useI18n();
+  const clock = useClock();
   const [side, setSide] = useState<Side>("yes");
   const [tab, setTab] = useState<Tab>("book");
   const [pickedCents, setPickedCents] = useState<number | null>(null);
@@ -80,6 +81,15 @@ export function CellPanel({
   const state = data?.CellState?.[0] ?? leg;
   const remaining = cell.endTs - now;
   const settled = cell.outcome !== Outcome.Unresolved;
+  /**
+   * Closed but not yet resolved.
+   *
+   * The board already says "closed" in this column's head; the panel used to
+   * disagree with it, showing a live-yellow 0:00 under a bar filled to the brim
+   * — which reads as "trade now, one second left" on a market that has stopped
+   * taking orders. Three states, not two.
+   */
+  const closed = !settled && remaining <= 0;
   const elapsed = Math.min(Math.max(1 - remaining / WINDOW_SECONDS, 0), 1);
 
   const quotes = useMemo<Record<Side, LegQuote | null>>(() => {
@@ -120,30 +130,24 @@ export function CellPanel({
             })}
           </h2>
           <p className="data flex items-baseline gap-2 text-[11px] text-[var(--color-foam-faint)]">
-            <span>
-              {t("cell.closes", {
-                time: new Date(cell.endTs * 1000).toLocaleTimeString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              })}
-            </span>
+            <span>{t("cell.closes", { time: clock(cell.endTs) })}</span>
             <span
               className="readout font-medium"
               style={{
-                color: settled
-                  ? "var(--color-foam-faint)"
-                  : remaining < 60
-                    ? "var(--color-live)"
-                    : "var(--color-foam-dim)",
+                color:
+                  settled || closed
+                    ? "var(--color-foam-faint)"
+                    : remaining < 60
+                      ? "var(--color-live)"
+                      : "var(--color-foam-dim)",
               }}
             >
-              {settled ? t("cell.expired") : formatClock(remaining)}
+              {settled ? t("cell.expired") : closed ? t("board.settling") : formatClock(remaining)}
             </span>
           </p>
         </div>
 
-        {!settled && (
+        {!settled && !closed && (
           <div className="mx-4 h-[6px] overflow-hidden rounded-full bg-[var(--color-rule)]">
             <div
               className="h-full rounded-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"

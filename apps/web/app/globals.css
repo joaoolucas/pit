@@ -161,9 +161,50 @@ body {
   box-shadow: inset 0 0 0 2px var(--color-rule-bright);
 }
 
+/*
+ * A slot with no market behind it yet.
+ *
+ * The roller opens columns a minute at a time, so most of the chain is empty
+ * most of the time. Drawing nothing there made the board look like it had
+ * failed to load; a hairline says "this square exists, nothing is listed on it"
+ * without ever competing with a tile that has a price.
+ */
+.slot {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-rule) 55%, transparent);
+}
+
+/*
+ * The board scrolls under its own clock row. A hard cut there reads as a
+ * clipping bug, so the first and last few pixels fade instead.
+ */
+.board-scroll {
+  --board-fade: 14px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--board-fade),
+    #000 calc(100% - var(--board-fade)),
+    transparent 100%
+  );
+}
+
 /* At-the-money: a soft sky wash, not a spreadsheet highlight. */
 .atm {
   background: color-mix(in oklab, var(--color-trace) 9%, transparent);
+}
+
+/*
+ * The wash marks the row. It must not erase the row's paint — a plain
+ * background here beat .tile's --fill, so the one row every other strike is
+ * judged against was the only row on the board showing no depth at all.
+ * Laid on as an image, the sky sits over the balloon instead of replacing it.
+ */
+.tile.atm {
+  background-color: var(--fill, transparent);
+  background-image: linear-gradient(
+    color-mix(in oklab, var(--color-trace) 9%, transparent),
+    color-mix(in oklab, var(--color-trace) 9%, transparent)
+  );
 }
 
 /* --------------------------------------------------------------- controls --- */
@@ -229,6 +270,13 @@ body {
 .btn-outline:focus-visible {
   outline: 2px solid var(--color-trace);
   outline-offset: 3px;
+}
+
+/* Anything not already carrying a ring gets the same one, rather than falling
+   back to the browser's white rectangle on a dusk-coloured panel. */
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-trace);
+  outline-offset: 2px;
 }
 
 input[type="number"]::-webkit-outer-spin-button,

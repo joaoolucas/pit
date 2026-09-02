@@ -6,6 +6,21 @@ import type { RawFill, RawFlow } from "@/lib/indexer";
 import { formatCents, shortAddress, sizeToContracts, tickToCents } from "@pit/core";
 
 /**
+ * An empty tab.
+ *
+ * These sit in a panel that is as tall as the screen, so a line of text glued to
+ * the top edge reads as a list that failed to render. Centred, it reads as an
+ * answer.
+ */
+function Nothing({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full min-h-[7rem] items-center justify-center px-4 py-8">
+      <p className="text-center text-[11px] text-[var(--color-foam-faint)]">{children}</p>
+    </div>
+  );
+}
+
+/**
  * The tape.
  *
  * Colour is taker aggression, not price direction: green when someone lifted the
@@ -16,7 +31,7 @@ export function Tape({ fills }: { fills: RawFill[] }) {
   const { t } = useI18n();
 
   if (fills.length === 0) {
-    return <p className="px-3 py-6 text-center text-[11px] text-[var(--color-foam-faint)]">{t("cell.noFills")}</p>;
+    return <Nothing>{t("cell.noFills")}</Nothing>;
   }
 
   return (
@@ -67,9 +82,7 @@ export function FlowChart({ flow }: { flow: RawFlow[] }) {
   const { t } = useI18n();
 
   if (flow.length < 2) {
-    return (
-      <p className="px-3 py-6 text-center text-[11px] text-[var(--color-foam-faint)]">{t("cell.noFills")}</p>
-    );
+    return <Nothing>{t("cell.noFills")}</Nothing>;
   }
 
   const values = flow.map((point) => Number(point.cvd));

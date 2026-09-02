@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { useI18n } from "@/lib/i18n";
+import { useClock, useI18n } from "@/lib/i18n";
 import type { Candle } from "@/lib/usePrice";
 import {
   e8ToUsd,
@@ -149,7 +149,13 @@ export function Board({
       </div>
 
       {/* Body: the trace on the left, the chain on the right, sharing rows. */}
-      <div ref={bodyRef} className="flex min-h-0 flex-1 overflow-y-auto px-1.5 pb-1">
+      {/* The body scrolls under the heads. Without the mask a row is sliced
+          flat against the clock row and reads as a rendering fault rather than
+          as more board. */}
+      <div
+        ref={bodyRef}
+        className="board-scroll flex min-h-0 flex-1 overflow-y-auto px-1.5 pb-1"
+      >
         <Trace
           candles={candles}
           strikes={strikes}
@@ -202,6 +208,7 @@ function ColumnHead({
   index: number;
 }) {
   const { t } = useI18n();
+  const clock = useClock();
   const remaining = endTs - now;
   const closed = remaining <= 0;
   const urgent = !closed && remaining < 60;
@@ -216,12 +223,7 @@ function ColumnHead({
         live ? "bg-[color-mix(in_oklab,var(--color-live)_14%,transparent)]" : ""
       }`}
     >
-      <span className="data text-[11px] text-[var(--color-foam-dim)]">
-        {new Date(endTs * 1000).toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
+      <span className="data text-[11px] text-[var(--color-foam-dim)]">{clock(endTs)}</span>
       <span
         className="readout text-[13px] leading-none"
         style={{
@@ -317,6 +319,21 @@ function StrikeRow({
   );
 }
 
+/**
+ * The pigments, as numbers.
+ *
+ * Mirrors --color-yes / --color-no / --color-deep / --color-foam in globals.css.
+ * The tile paints itself with color-mix on those tokens; this copy exists only
+ * so the label can work out what colour it is about to sit on.
+ */
+const PIGMENT = { yes: [125, 255, 179], no: [255, 143, 171] } as const;
+const GROUND = [26, 18, 36] as const;
+const FOAM = [255, 244, 232] as const;
+
+/** How much white the pigment is cut with, and how opaque it goes on. */
+const whiteCut = (ink: TileInk) => 1 - (0.55 + ink.conviction * 0.45);
+const alphaOf = (ink: TileInk) => 0.42 + ink.presence * 0.48;
+
 /** Turns the two-channel ink into a CSS colour. Hue by side, alpha by depth. */
 function fillFor(ink: TileInk): string {
   if (ink.side === "none" || ink.presence === 0) return "transparent";
@@ -324,8 +341,51 @@ function fillFor(ink: TileInk): string {
     55 +
     ink.conviction * 45
   ).toFixed(0)}%, white)`;
-  const alpha = (42 + ink.presence * 48).toFixed(1);
+  const alpha = (alphaOf(ink) * 100).toFixed(1);
   return `color-mix(in oklab, ${hue} ${alpha}%, transparent)`;
+}
+
+const luminance = ([r, g, b]: readonly number[]): number => {
+  const channel = (v: number) => {
+    const c = (v ?? 0) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r!) + 0.7152 * channel(g!) + 0.0722 * channel(b!);
+};
+
+const contrast = (a: readonly number[], b: readonly number[]): number => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+};
+
+/**
+ * What colour the multiple is printed in.
+ *
+ * The pigments are pastels, so a deep book paints a *light* balloon — and the
+ * side colour that reads beautifully on a hollow tile disappears into it. The
+ * number is the single most important thing on this board, so it does not get to
+ * be a casualty of the depth channel: on a painted balloon the label is whichever
+ * of the ground or the foam actually reads against the paint, and the balloon's
+ * own hue goes on saying which side it is. Only a hollow tile, where there is no
+ * paint to say it, keeps the side colour in the type.
+ */
+function labelFor(ink: TileInk): { strong: string; quiet: string } {
+  const side = ink.side === "no" ? "no" : "yes";
+
+  if (ink.side === "none" || ink.presence === 0) {
+    return { strong: `var(--color-${side})`, quiet: "var(--color-foam-dim)" };
+  }
+
+  const white = whiteCut(ink);
+  const alpha = alphaOf(ink);
+  const composite = PIGMENT[side].map((channel, i) => {
+    const pigment = channel * (1 - white) + 255 * white;
+    return pigment * alpha + GROUND[i]! * (1 - alpha);
+  });
+
+  return contrast(composite, GROUND) >= contrast(composite, FOAM)
+    ? { strong: "var(--color-deep)", quiet: "color-mix(in oklab, var(--color-deep) 68%, transparent)" }
+    : { strong: "var(--color-foam)", quiet: "var(--color-foam-dim)" };
 }
 
 function Tile({
@@ -349,10 +409,14 @@ function Tile({
 }) {
   const { t } = useI18n();
 
+  // No market at this (expiry, strike) yet — the roller has not opened it. An
+  // invisible div here made whole columns read as a broken board, so the slot
+  // gets a faint outline: present, empty, and visibly not a tile you can click.
   if (!cell) {
     return (
       <div
-        className={`rounded-[22px] ${atm ? "atm" : ""}`}
+        aria-hidden
+        className={`slot rounded-[22px] ${atm ? "atm" : ""}`}
         style={{ height: rowHeight }}
       />
     );
@@ -361,6 +425,7 @@ function Tile({
   const settled = cell.outcome !== Outcome.Unresolved;
   const cents = cell.cents;
   const ink = tileInk(settled ? null : cents, cell.depth, maxDepth);
+  const label = labelFor(ink);
 
   return (
     <button
@@ -397,12 +462,12 @@ function Tile({
         <>
           <span
             className="readout text-[22px] leading-none sm:text-[24px]"
-            style={{ color: `var(--color-${ink.side === "no" ? "no" : "yes"})` }}
+            style={{ color: label.strong }}
           >
             {formatMultiple(cents)}
           </span>
           {/* What it costs. How deep it is, the paint already said. */}
-          <span className="data text-[11px] leading-none text-[var(--color-foam-dim)]">
+          <span className="data text-[11px] leading-none" style={{ color: label.quiet }}>
             {formatCents(cents)}
           </span>
         </>
@@ -450,6 +515,7 @@ function Trace({
   now: number;
   spotAt: ReturnType<typeof locateOnLadder>;
 }) {
+  const clock = useClock();
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -538,17 +604,18 @@ function Trace({
                 strokeWidth={1}
                 opacity={0.55}
               />
+              {/* Labelled at the top, under the head row: the bottom of this
+                  SVG is wherever the ladder happens to end, which put the time
+                  axis in the middle of the scroll and straight through the
+                  price line. */}
               <text
                 x={toX(ts) + 4}
-                y={height - 6}
+                y={12}
                 fontSize={9}
                 fill="var(--color-foam-faint)"
                 fontFamily="var(--font-data)"
               >
-                {new Date(ts * 1000).toLocaleTimeString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {clock(ts)}
               </text>
             </g>
           ))}
