@@ -1,0 +1,30 @@
+{
+  "name": "cell",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Cell — a prediction grid on Monad. Every cell is a 5-minute YES/NO market on Kuru's onchain CLOB.",
+  "workspaces": [
+    "apps/web",
+    "packages/core"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @cell/web",
+    "build": "npm run build -w @cell/web",
+    "lint": "npm run lint -w @cell/web",
+    "typecheck": "npm run typecheck -w @cell/core && npm run typecheck -w @cell/web",
+    "contracts:install": "npm --prefix packages/contracts install",
+    "contracts:build": "npm --prefix packages/contracts run build",
+    "contracts:test": "npm --prefix packages/contracts run test",
+    "deploy:testnet": "npm --prefix packages/contracts run deploy:testnet",
+    "windows:roll": "npm --prefix packages/contracts run windows:roll",
+    "seed": "npm --prefix packages/contracts run seed",
+    "indexer:install": "npm --prefix packages/indexer install",
+    "indexer:codegen": "npm --prefix packages/indexer run codegen",
+    "indexer:dev": "npm --prefix packages/indexer run dev",
+    "cre:simulate": "npm --prefix packages/cre run simulate"
+  }
+}
