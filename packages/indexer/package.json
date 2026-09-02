@@ -11,7 +11,9 @@
     "stop": "envio stop",
     "local-docs": "envio local docker up",
     "sync": "node scripts/sync.mjs",
-    "validate": "node scripts/validate.mjs"
+    "validate": "node scripts/validate.mjs",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "check": "npm run validate && npm run test"
   },
   "dependencies": {
     "envio": "latest"

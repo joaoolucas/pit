@@ -9,7 +9,7 @@
  */
 import { indexer } from "envio";
 
-import { marketId, windowIdOf, OUTCOME } from "../shared";
+import { marketId, windowIdOf, OUTCOME } from "../shared.ts";
 
 indexer.contractRegister({ contract: "CellFactory", event: "WindowCreated" }, ({ event, context }) => {
   context.chain.KuruOrderBook.add(event.params.yesMarket);
