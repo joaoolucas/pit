@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { rollCommand } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
@@ -46,6 +46,41 @@ const TRACE_WIDTH = "28%";
  * is the instrument; the round corners belong to the chrome around it.
  */
 const BOARD_GAP = 0;
+
+/**
+ * An element's measured size.
+ *
+ * The board and the trace both used a `useRef` with a `useLayoutEffect([])`
+ * that read `ref.current` once, on whichever commit it happened to run on. When
+ * the node was not attached on that commit the observer was never created, the
+ * effect never ran again — its dependency list is empty — and the measurement
+ * stayed at zero for the life of the component. Zero width means the trace
+ * draws no price line, no time axis and no now-dot; zero height means every row
+ * falls back to its minimum. A callback ref runs when the node actually arrives,
+ * which is the only moment either of them cares about.
+ */
+function useMeasured<T extends HTMLElement>() {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const observer = useRef<ResizeObserver | null>(null);
+
+  const ref = useCallback((node: T | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!node) return;
+
+    const next = new ResizeObserver(([entry]) => {
+      if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    next.observe(node);
+    observer.current = next;
+
+    // Measured now as well as on change, so the first paint is not a blank one.
+    const rect = node.getBoundingClientRect();
+    setSize({ width: rect.width, height: rect.height });
+  }, []);
+
+  return { ref, width: size.width, height: size.height };
+}
 
 export const cellId = (endTs: number, strikeE8: bigint) => `${endTs}:${strikeE8}`;
 
@@ -96,8 +131,7 @@ export function Board({
   onSelect,
 }: Props) {
   const { t } = useI18n();
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [bodyHeight, setBodyHeight] = useState(0);
+  const { ref: bodyRef, height: bodyHeight } = useMeasured<HTMLDivElement>();
   /**
    * What the pointer is on.
    *
@@ -107,16 +141,6 @@ export function Board({
    * lets the board draw those lines for you — and lets the card say the rest.
    */
   const [aim, setAim] = useState<Aim | null>(null);
-
-  useLayoutEffect(() => {
-    const node = bodyRef.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setBodyHeight(entry.contentRect.height);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
 
   const rowHeight =
     strikes.length === 0
@@ -199,6 +223,7 @@ export function Board({
           rowHeight={rowHeight}
           now={now}
           spotAt={spotAt}
+          spotE8={spotE8}
         />
 
         <div
@@ -546,56 +571,110 @@ function Trace({
   rowHeight,
   now,
   spotAt,
+  spotE8,
 }: {
   candles: Candle[];
   strikes: bigint[];
   rowHeight: number;
   now: number;
   spotAt: ReturnType<typeof locateOnLadder>;
+  spotE8: bigint | null;
 }) {
   const clock = useClock();
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const { ref, width } = useMeasured<HTMLDivElement>();
 
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
 
   const height = strikes.length * rowHeight;
   const from = now - TRACE_MINUTES * 60;
   const toX = (unix: number) => ((unix - from) / (now - from)) * width;
 
-  const priceToY = (priceUsd: number): number | null => {
-    const at = locateOnLadder(strikes, BigInt(Math.round(priceUsd * 1e8)));
-    return at?.on === "ladder" ? at.offset * rowHeight : null;
-  };
+  const ladder = useMemo(() => strikes.map(e8ToUsd), [strikes]);
 
-  // Segments, not one polyline: joining across a gap would draw a line through
-  // strikes the price never visited.
+  /**
+   * Price to y, as a scale rather than a rank.
+   *
+   * `locateOnLadder` answers "which row is this on", and has nothing to say
+   * about a price that is on no row at all — so the trace was throwing those
+   * candles away. On a calm half hour that was already a sixth of them, and the
+   * ones it dropped were the excursions: exactly the moments a board about
+   * "will BTC be above X" exists to show. Off the ladder the line now keeps
+   * going at the ladder's own spacing and leaves the board through the top or
+   * the bottom, which is both true and legible.
+   */
+  const priceToY = useCallback(
+    (priceUsd: number): number => {
+      const rows = ladder.length;
+      if (rows === 0) return 0;
+      if (rows === 1) return 0.5 * rowHeight;
+
+      const top = ladder[0]!;
+      const bottom = ladder[rows - 1]!;
+
+      if (priceUsd <= top && priceUsd >= bottom) {
+        for (let i = 0; i < rows - 1; i++) {
+          const upper = ladder[i]!;
+          const lower = ladder[i + 1]!;
+          if (priceUsd <= upper && priceUsd >= lower) {
+            const fraction = upper === lower ? 0 : (upper - priceUsd) / (upper - lower);
+            return (i + 0.5 + fraction) * rowHeight;
+          }
+        }
+      }
+
+      if (priceUsd > top) {
+        const step = ladder[0]! - ladder[1]! || 1;
+        return (0.5 - (priceUsd - top) / step) * rowHeight;
+      }
+      const step = ladder[rows - 2]! - ladder[rows - 1]! || 1;
+      return (rows - 0.5 + (bottom - priceUsd) / step) * rowHeight;
+    },
+    [ladder, rowHeight],
+  );
+
+  /**
+   * Segments, not one polyline: a hole in the feed must not be drawn as a move
+   * the price never made. A hole is now the only thing that breaks the line —
+   * it used to break wherever the price stepped off the visible ladder, which
+   * is a fact about the board, not about the feed.
+   */
   const segments = useMemo(() => {
     if (width === 0 || candles.length === 0) return [];
-    const out: string[][] = [];
+
+    const runs: string[][] = [];
     let run: string[] = [];
+    let previous: number | null = null;
 
     for (const candle of candles) {
-      const y = candle.time < from || candle.time > now ? null : priceToY(candle.close);
-      if (y === null) {
-        if (run.length > 1) out.push(run);
+      if (candle.time < from || candle.time > now) continue;
+      // Candles are one minute apart; two missing in a row is a real gap.
+      if (previous !== null && candle.time - previous > 150) {
+        if (run.length > 1) runs.push(run);
         run = [];
-        continue;
       }
-      run.push(`${toX(candle.time).toFixed(1)},${y.toFixed(1)}`);
+      run.push(`${toX(candle.time).toFixed(1)},${priceToY(candle.close).toFixed(1)}`);
+      previous = candle.time;
     }
-    if (run.length > 1) out.push(run);
-    return out.map((points) => points.join(" "));
+    if (run.length > 0) runs.push(run);
+
+    /**
+     * The last point is the live price, at now.
+     *
+     * The candle feed runs minutes behind — measured at 224 seconds, an eighth
+     * of this window — so the line used to stop short of the dot that marks the
+     * same price, and the two disagreed about where BTC was. They are the same
+     * series; they should meet.
+     */
+    if (spotE8 !== null) {
+      const last = runs[runs.length - 1];
+      const y = priceToY(e8ToUsd(spotE8));
+      if (last && previous !== null && now - previous <= 15 * 60) {
+        last.push(`${(width - 1).toFixed(1)},${y.toFixed(1)}`);
+      }
+    }
+
+    return runs.filter((points) => points.length > 1).map((points) => points.join(" "));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles, width, rowHeight, strikes, now]);
+  }, [candles, width, rowHeight, strikes, now, spotE8, priceToY]);
 
   const ticks = useMemo(() => {
     const out: number[] = [];

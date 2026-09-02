@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { GRID_POLL_MS, UNDERLYING } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
@@ -120,8 +120,35 @@ export function Terminal() {
    * The roller opens a fresh ladder every minute, so an hour of drift leaves far
    * more strikes on the board than fit — and the far ones are the ones nobody
    * trades. Show a window around the money, the way a chain does.
+   *
+   * Held still while the price is comfortably inside it. `visibleStrikes`
+   * re-centres on the nearest strike, which means the window slid by a whole row
+   * every fifty dollars — and every row the window slides, the entire board and
+   * the half hour of price drawn beside it jump seventy-two pixels. The reading
+   * stayed correct (the labels move with it) but a chart that teleports while
+   * you are reading it is a chart you stop trusting. It now only re-centres when
+   * the price reaches the outermost row, so the board holds still for a few
+   * hundred dollars at a time.
    */
-  const strikes = useMemo(() => visibleStrikes(allStrikes, priceE8), [allStrikes, priceE8]);
+  const held = useRef<bigint[]>([]);
+  const strikes = useMemo(() => {
+    const fresh = visibleStrikes(allStrikes, priceE8);
+    const previous = held.current;
+
+    const stillUsable =
+      previous.length === fresh.length &&
+      previous.length > 2 &&
+      priceE8 !== null &&
+      // every row still exists on the board
+      previous.every((strike) => allStrikes.includes(strike)) &&
+      // and the price has not reached the edge of it
+      priceE8 <= previous[1]! &&
+      priceE8 >= previous[previous.length - 2]!;
+
+    if (stillUsable) return previous;
+    held.current = fresh;
+    return fresh;
+  }, [allStrikes, priceE8]);
 
   /** Move across the trace window, for the header. */
   const changePct = useMemo(() => {
