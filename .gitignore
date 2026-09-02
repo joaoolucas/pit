@@ -10,6 +10,7 @@ coverage/
 generated/
 .env
 .env.local
+apps/web/.data/
 .env.*.local
 secrets.yaml
 *.log

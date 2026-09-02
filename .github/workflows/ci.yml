@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Everything here runs without a chain, a key, or a container. The parts that
+# genuinely need one — `envio codegen`, `cre workflow simulate` — are documented
+# in their own READMEs and are not faked here.
+jobs:
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix packages/contracts
+      - run: npm --prefix packages/contracts run build
+      - run: npm --prefix packages/contracts run test
+
+  indexer:
+    name: Indexer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix packages/indexer
+      # Validates config.yaml against the JSON schema inside the envio package and
+      # cross-checks every declared event signature against abis/. Catches what
+      # codegen would catch, without Docker.
+      - run: npm --prefix packages/indexer run validate
+      - run: npm --prefix packages/indexer run test
+
+  cre:
+    name: CRE workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix packages/contracts
+      # The pre-flight compares the workflow's ABI fragment to the compiled
+      # artifact, so a contract change that breaks settlement fails here.
+      - run: npm --prefix packages/contracts run build
+      - run: npm ci --prefix packages/cre/settle-workflow
+      - run: npx --prefix packages/cre/settle-workflow tsc --noEmit -p packages/cre/settle-workflow/tsconfig.json
+      - run: npm --prefix packages/cre run check
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build

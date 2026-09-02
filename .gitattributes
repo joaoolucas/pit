@@ -1,3 +1,4 @@
 * text=auto eol=lf
 *.sol text eol=lf
 *.png binary
+*.jpg binary
