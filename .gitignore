@@ -21,7 +21,10 @@ Thumbs.db
 packages/indexer/generated/
 packages/cre/**/*.wasm
 packages/cre/.cre/
-deployments/*.local.json
+# Local deployments are per-machine scratch. A testnet or mainnet deployment
+# record is checked in, because it is the address a judge needs.
+**/deployments/localhost.json
+**/deployments/quotes.*.json
 .vercel
 .turbo
 *.tsbuildinfo
