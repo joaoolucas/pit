@@ -20,7 +20,9 @@
     "settle:local": "hardhat run scripts/settle.ts --network localhost",
     "indexer:local": "hardhat run scripts/local-indexer.ts --network localhost",
     "demo:fills": "hardhat run scripts/demo-fills.ts --network monadTestnet",
-    "demo:fills:local": "hardhat run scripts/demo-fills.ts --network localhost"
+    "demo:fills:local": "hardhat run scripts/demo-fills.ts --network localhost",
+    "tick": "hardhat run scripts/tick.ts --network monadTestnet",
+    "tick:local": "hardhat run scripts/tick.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

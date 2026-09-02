@@ -161,11 +161,10 @@ cp .env.example .env
 # 1  a chain
 npm --prefix packages/contracts run node
 
-# 2  deploy, open the board, quote both sides of every cell
+# 2  deploy, then keep the board alive
 npm run contracts:build
 npm --prefix packages/contracts run deploy:local
-npm --prefix packages/contracts run windows:roll:local
-npm --prefix packages/contracts run seed:local
+TICK_WATCH=1 npm --prefix packages/contracts run tick:local
 
 # 3  index it
 npm --prefix packages/contracts run indexer:local
@@ -181,6 +180,11 @@ Then take some liquidity, so there is a tape:
 FILLS=4 npm --prefix packages/contracts run demo:fills:local
 ```
 
+`tick` is the operating loop — settle the windows that closed, open the next
+columns, requote every live cell — once a minute, forever. A grid of five-minute
+markets is an operation, not a deploy: run the three scripts by hand and the
+board is dead within half an hour. Drop `TICK_WATCH=1` for a single pass.
+
 Terminal 3 is a **development stand-in** for `envio dev`, for machines without
 Docker. It reads real logs with `eth_getLogs` and runs the *same* fold functions
 that ship to Envio. Production is Envio; see the indexer README for `envio
@@ -191,14 +195,15 @@ codegen && envio dev`, which needs Linux, macOS or WSL2.
 ```bash
 # fund DEPLOYER_PRIVATE_KEY at https://faucet.monad.xyz, then
 npm run deploy:testnet        # CellFactory + CellSettlementReceiver + faucet USDC
-npm run windows:roll          # open the next 8 columns × 7 strikes
-npm run seed                  # quote both legs of every live cell
+TICK_WATCH=1 npm --prefix packages/contracts run tick   # settle + roll + seed, every minute
 
 npm --prefix packages/indexer run sync && npm --prefix packages/indexer run codegen
 npm --prefix packages/cre run sync && npm --prefix packages/cre run simulate
 ```
 
-Put the roller and the seeder on a one-minute cron and the board stays full.
+In production `tick` is a one-minute cron entry. Once `setSettler` points at the
+CRE receiver, its settle stage reports "not the settler" and does nothing — which
+is the correct steady state.
 
 ---
 

@@ -36,6 +36,7 @@ const dictionary = {
     "grid.live": "ao vivo",
     "grid.settled": "liquidado",
     "grid.closed": "fechada",
+    "grid.settling": "liquidando",
 
     "cell.select": "Clique numa célula para ver o livro.",
     "cell.above": "BTC acima de {strike} às {time}",
@@ -141,6 +142,7 @@ const dictionary = {
     "grid.live": "live",
     "grid.settled": "settled",
     "grid.closed": "closed",
+    "grid.settling": "settling",
 
     "cell.select": "Pick a cell to see its book.",
     "cell.above": "BTC above {strike} at {time}",

@@ -24,6 +24,7 @@ import {
   e8ToUsd,
   fairProbabilityAbove,
   ladderStepUsd,
+  locateOnLadder,
   strikeLadder,
   upcomingWindowEnds,
   usdToE8,
@@ -206,4 +207,48 @@ test("more time left means more uncertainty", () => {
   const soon = fairProbabilityAbove(spot, strike, 30, 0.3);
   const later = fairProbabilityAbove(spot, strike, 300, 0.3);
   assert.ok(later > soon, "an out-of-the-money strike gets likelier with more time");
+});
+
+// ---------------------------------------------------------------------------
+// Placing the price on the board
+// ---------------------------------------------------------------------------
+
+test("a price inside the ladder lands in the right row", () => {
+  const strikes = strikeLadder(usdToE8(76_841)); // 77000 .. 76700, $50 apart
+
+  // The centre of the top row.
+  assert.deepEqual(locateOnLadder(strikes, usdToE8(77_000)), { on: "ladder", offset: 0.5 });
+  // Halfway between the top two strikes is the boundary between rows 0 and 1.
+  assert.deepEqual(locateOnLadder(strikes, usdToE8(76_975)), { on: "ladder", offset: 1 });
+  // The centre of the second row.
+  assert.deepEqual(locateOnLadder(strikes, usdToE8(76_950)), { on: "ladder", offset: 1.5 });
+  // The bottom row's centre is the last row.
+  assert.deepEqual(locateOnLadder(strikes, usdToE8(76_700)), { on: "ladder", offset: 6.5 });
+});
+
+test("a price off the ladder says so instead of disappearing", () => {
+  const strikes = strikeLadder(usdToE8(76_841));
+
+  const above = locateOnLadder(strikes, usdToE8(78_000))!;
+  assert.equal(above.on, "above");
+  assert.equal(above.offset, 0, "clamps to the top edge so a marker can still be drawn");
+
+  const below = locateOnLadder(strikes, usdToE8(70_000))!;
+  assert.equal(below.on, "below");
+  assert.equal(below.offset, strikes.length, "clamps to the bottom edge");
+});
+
+test("locating on an empty ladder is not an error, it is nothing", () => {
+  assert.equal(locateOnLadder([], usdToE8(76_800)), null);
+});
+
+test("the offset is monotonic as the price falls", () => {
+  const strikes = strikeLadder(usdToE8(76_841));
+  let previous = -1;
+  for (let price = 77_000; price >= 76_700; price -= 10) {
+    const location = locateOnLadder(strikes, usdToE8(price))!;
+    assert.equal(location.on, "ladder");
+    assert.ok(location.offset > previous, `offset must grow as price falls (at ${price})`);
+    previous = location.offset;
+  }
 });

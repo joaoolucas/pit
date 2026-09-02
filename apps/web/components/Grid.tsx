@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Candle } from "@/lib/usePrice";
-import { e8ToUsd, formatClock, Outcome, tickToProb, WINDOW_SECONDS } from "@cell/core";
+import { e8ToUsd, formatClock, locateOnLadder, Outcome, tickToProb, WINDOW_SECONDS } from "@cell/core";
 import type { GridCell } from "./types";
 
 /** Never thinner than this, however much room there is. */
@@ -68,26 +68,14 @@ export function Grid({
   const rowHeight =
     strikes.length === 0 ? MIN_ROW_HEIGHT : Math.max(MIN_ROW_HEIGHT, Math.floor(size.height / strikes.length));
 
-  /** Price -> y pixel, interpolating between the two strikes that bracket it. */
+  /**
+   * Price -> y pixel. Null when the price is off the ladder, because a line
+   * drawn there would be a lie about which cells it crossed.
+   */
   const priceToY = useMemo(() => {
-    if (strikes.length === 0) return () => null;
-    const values = strikes.map((s) => e8ToUsd(s));
-
-    return (price: number): number | null => {
-      const top = values[0]!;
-      const bottom = values[values.length - 1]!;
-      // Outside the ladder the line would be a lie about which cells it crosses.
-      if (price > top || price < bottom) return null;
-
-      for (let i = 0; i < values.length - 1; i++) {
-        const upper = values[i]!;
-        const lower = values[i + 1]!;
-        if (price <= upper && price >= lower) {
-          const fraction = upper === lower ? 0 : (upper - price) / (upper - lower);
-          return (i + 0.5 + fraction) * rowHeight;
-        }
-      }
-      return null;
+    return (priceUsd: number): number | null => {
+      const at = locateOnLadder(strikes, BigInt(Math.round(priceUsd * 1e8)));
+      return at?.on === "ladder" ? at.offset * rowHeight : null;
     };
   }, [strikes, rowHeight]);
 
@@ -128,7 +116,19 @@ export function Grid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles, columns, priceToY, plotWidth]);
 
-  const spotY = spotE8 === null ? null : priceToY(e8ToUsd(spotE8));
+  /**
+   * The spot marker. When the price walks off the ladder the marker pins to the
+   * edge it left by and points that way, rather than vanishing — a board with no
+   * price on it reads as broken, and the roller recentres on its next pass
+   * anyway.
+   */
+  const spot = useMemo(() => {
+    if (spotE8 === null) return null;
+    const at = locateOnLadder(strikes, spotE8);
+    if (!at) return null;
+    return { y: at.offset * rowHeight, off: at.on === "ladder" ? null : at.on };
+  }, [spotE8, strikes, rowHeight]);
+
   // The marker belongs at *now*, not at the start of the live column.
   const spotX = plotWidth > 0 ? timeToX(now) : null;
 
@@ -193,6 +193,7 @@ export function Grid({
               cells={cells}
               spotE8={spotE8}
               rowHeight={rowHeight}
+              now={now}
               selectedId={selectedId}
               onSelect={onSelect}
             />
@@ -217,35 +218,50 @@ export function Grid({
                 opacity={0.75}
               />
             ))}
-            {spotY !== null && (
+            {spot !== null && spotE8 !== null && (
               <>
-                <line
-                  x1={0}
-                  x2="100%"
-                  y1={spotY}
-                  y2={spotY}
-                  stroke="var(--color-ink)"
-                  strokeWidth={0.75}
-                  strokeDasharray="3 4"
-                  opacity={0.4}
-                />
-                {spotX !== null && <circle cx={spotX} cy={spotY} r={3} fill="var(--color-ink)" />}
+                {/* No dashed line when the price is off the board: there is no
+                    row for it to be level with. */}
+                {spot.off === null && (
+                  <>
+                    <line
+                      x1={0}
+                      x2="100%"
+                      y1={spot.y}
+                      y2={spot.y}
+                      stroke="var(--color-ink)"
+                      strokeWidth={0.75}
+                      strokeDasharray="3 4"
+                      opacity={0.4}
+                    />
+                    {spotX !== null && <circle cx={spotX} cy={spot.y} r={3} fill="var(--color-ink)" />}
+                  </>
+                )}
                 {/* The price, pinned to its own line. Every strike on the board
-                    is read against this number, so it should never be a
-                    glance away in the header. */}
-                <g transform={`translate(${Math.max(plotWidth - 62, 0)}, ${spotY - 8})`}>
-                  <rect width={60} height={16} rx={2} fill="var(--color-ink)" />
+                    is read against this number, so it should never be a glance
+                    away in the header. */}
+                <g
+                  transform={`translate(${Math.max(plotWidth - 68, 0)}, ${Math.min(
+                    Math.max(spot.y - 8, 1),
+                    strikes.length * rowHeight - 17,
+                  )})`}
+                >
+                  <rect
+                    width={66}
+                    height={16}
+                    rx={2}
+                    fill={spot.off === null ? "var(--color-ink)" : "var(--color-live)"}
+                  />
                   <text
-                    x={30}
+                    x={33}
                     y={11}
                     textAnchor="middle"
                     fontSize={10}
                     fontFamily="var(--font-mono)"
                     fill="var(--color-void)"
                   >
-                    {spotE8 === null
-                      ? ""
-                      : e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                    {spot.off === "above" ? "▲ " : spot.off === "below" ? "▼ " : ""}
+                    {e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
                   </text>
                 </g>
               </>
@@ -267,6 +283,7 @@ function StrikeRow({
   cells,
   spotE8,
   rowHeight,
+  now,
   selectedId,
   onSelect,
 }: {
@@ -275,6 +292,7 @@ function StrikeRow({
   cells: Map<string, GridCell>;
   spotE8: bigint | null;
   rowHeight: number;
+  now: number;
   selectedId: string | null;
   onSelect: (cell: GridCell) => void;
 }) {
@@ -310,6 +328,7 @@ function StrikeRow({
             cell={cell}
             selected={cell ? cellId(endTs, strikeE8) === selectedId : false}
             rowHeight={rowHeight}
+            closed={endTs <= now}
             onSelect={onSelect}
           />
         );
@@ -322,11 +341,13 @@ function CellTile({
   cell,
   selected,
   rowHeight,
+  closed,
   onSelect,
 }: {
   cell: GridCell | undefined;
   selected: boolean;
   rowHeight: number;
+  closed: boolean;
   onSelect: (cell: GridCell) => void;
 }) {
   const { t } = useI18n();
@@ -385,6 +406,11 @@ function CellTile({
         >
           {cell.outcome === Outcome.Yes ? "YES" : cell.outcome === Outcome.No ? "NO" : "VOID"}
         </span>
+      ) : closed ? (
+        // Closed but not yet resolved. Showing the last multiple here would
+        // invite a click on a market that cannot be traded, so say the truth:
+        // the price is in, the outcome is not.
+        <span className="num text-[10px] text-[var(--color-live)]">{t("grid.settling")}</span>
       ) : p === null ? (
         <span className="text-[10px] text-[var(--color-ink-faint)]">{t("grid.noBook")}</span>
       ) : (

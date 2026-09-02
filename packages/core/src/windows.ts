@@ -107,6 +107,47 @@ export function roundStrikeE8(strikeE8: bigint): bigint {
   return ((strikeE8 + half) / PRICE_E8) * PRICE_E8;
 }
 
+/**
+ * Where a price sits on the ladder, in row units measured from the top edge.
+ *
+ * `offset` 0.5 is the centre of the first row, 1.5 the centre of the second, so
+ * a renderer multiplies by its row height and is done.
+ *
+ * The `on` tag exists because the interesting case is the price leaving the
+ * ladder entirely. A board whose price line has silently vanished is worse than
+ * one that says "the price is above every strike here" — the first looks broken,
+ * the second is information, and the roller recentring on its next pass fixes it
+ * either way.
+ */
+export type LadderLocation =
+  | { readonly on: "ladder"; readonly offset: number }
+  | { readonly on: "above"; readonly offset: 0 }
+  | { readonly on: "below"; readonly offset: number };
+
+export function locateOnLadder(strikesE8: readonly bigint[], priceE8: bigint): LadderLocation | null {
+  if (strikesE8.length === 0) return null;
+
+  const values = strikesE8.map(e8ToUsd);
+  const price = e8ToUsd(priceE8);
+  const top = values[0]!;
+  const bottom = values[values.length - 1]!;
+
+  if (price > top) return { on: "above", offset: 0 };
+  if (price < bottom) return { on: "below", offset: values.length };
+
+  for (let i = 0; i < values.length - 1; i++) {
+    const upper = values[i]!;
+    const lower = values[i + 1]!;
+    if (price <= upper && price >= lower) {
+      const fraction = upper === lower ? 0 : (upper - price) / (upper - lower);
+      return { on: "ladder", offset: i + 0.5 + fraction };
+    }
+  }
+
+  // A single-row ladder, or a price exactly on the only strike.
+  return { on: "ladder", offset: 0.5 };
+}
+
 export function usdToE8(usd: number): bigint {
   return BigInt(Math.round(usd * 1e8));
 }
