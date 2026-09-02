@@ -235,15 +235,28 @@ cell. Sizing, risk per cell and how the numbers were picked are in
 
 ## Next 30 days
 
-| Week | What ships                                                                                                                                                       |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Monad testnet deploy with the roller and seeder on cron, Envio Cloud indexer, CRE workflow deployed and the Forwarder wired so `settle` leaves the deploy key. Public board, continuously live. |
-| 2    | Maker economics: quote off the book's own imbalance instead of a flat model, inventory skew across the two legs, and a public P&L page for the seeding account. If the maker cannot survive being adversely selected, nothing else matters. |
-| 3    | Taker depth: market orders through `placeAndExecuteMarketBuy` with slippage bounds, position and P&L per window from the indexer's `Account` rows, and one-click redeem across every settled cell. |
-| 4    | Second underlying (ETH), the `pendingSettlement` workflow-id pin in `CellSettlementReceiver`, and a mainnet deploy against real USDC — with the maker's own capital and published limits. |
+Targets, not themes. Each week has a number that is either hit or not.
+
+| Week | What ships                                                                                                                                                                                             | The number                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| 1    | Monad testnet deploy with the roller and seeder on cron, Envio Cloud indexer, CRE workflow deployed and the Forwarder wired so `settle` leaves the deploy key.                                          | **56 cells quoted two-sided, 24h a day, for 7 straight days.** Uptime is the product. |
+| 2    | Maker economics: quote off the book's own imbalance instead of a flat model, inventory skew across the two legs, and a public P&L page for the seeding account.                                          | **Seeding account P&L ≥ −2% of quoted notional over 1,000 fills.** If the maker cannot survive adverse selection, nothing above it matters. |
+| 3    | Taker depth: market orders via `placeAndExecuteMarketBuy` with slippage bounds, position and P&L per window from the indexer's `Account` rows, one-click redeem across every settled cell.               | **25 distinct taker addresses that are not ours, and 250 fills.** Recruited by hand from Grid Arena and Outrive users. |
+| 4    | Second underlying (ETH), the workflow-id pin in `CellSettlementReceiver`, and a mainnet deploy against real USDC with the maker's own capital and published limits.                                     | **$25k of resting depth across the board and $100k of settled notional in the first week.** |
+
+**Liquidity beyond us.** We seed both sides from day one, but a market with one
+maker is a market with one point of failure. The plan is not "hope makers come":
+it is a maker program with three named asks — a rebate funded from taker fees
+once fees exist, a documented quoting bot (the seeder, published as a template
+anyone can run), and direct outreach to the two or three desks already market
+making on Kuru spot. Week 2's P&L page exists to make that pitch checkable
+rather than rhetorical.
 
 Deliberately not on this list: mobile, a token, a Discord bot, an ETH/BTC
 heatmap. One underlying, one book, one settlement path, made good.
+
+Where this is being submitted, and which bounties it does and does not fit:
+[`docs/SUBMISSION.md`](docs/SUBMISSION.md).
 
 ---
 
