@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { rollCommand } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
 import type { Candle } from "@/lib/usePrice";
 import {
@@ -142,8 +143,8 @@ export function Board({
       <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-center">
         <BalloonCluster />
         <p className="readout text-[22px] text-[var(--color-foam)]">{t("board.empty")}</p>
-        <p className="max-w-xs text-[13px] leading-relaxed text-[var(--color-foam-faint)]">
-          {t("board.emptyHint")}
+        <p className="max-w-sm text-[13px] leading-relaxed text-[var(--color-foam-faint)]">
+          {t("board.emptyHint", { command: rollCommand })}
         </p>
       </div>
     );

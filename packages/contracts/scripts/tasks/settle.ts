@@ -8,7 +8,7 @@
  */
 import { ethers } from "hardhat";
 
-import { fetchSpotE8, nowSeconds, readDeployment, usd } from "../lib";
+import { allWindows, fetchSpotE8, nowSeconds, readDeployment, usd } from "../lib";
 
 export type SettleOptions = {
   underlying?: string;
@@ -52,8 +52,7 @@ export async function settleClosed(options: SettleOptions = {}): Promise<SettleR
   const now = nowSeconds();
   if (!options.quiet) console.log(`Reference price $${usd(priceE8)}\n`);
 
-  const total = Number(await factory.windowCount());
-  const windows = await factory.getWindows(0, total);
+  const windows = await allWindows(factory);
 
   let settled = 0;
   let failed = 0;

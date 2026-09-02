@@ -16,7 +16,7 @@ import type { ContractTransactionReceipt, Interface } from "ethers";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import type { MockERC20 } from "../typechain-types";
 
-import { fetchSpotE8, nowSeconds, readDeployment, usd } from "./lib";
+import { allWindows, fetchSpotE8, nowSeconds, readDeployment, usd } from "./lib";
 import { contractsToSize, tickToProb } from "../../core/src/kuru";
 
 /** How many cells to trade. */
@@ -38,8 +38,7 @@ async function main() {
   console.log(`Taker  ${taker.address} on ${network.name}`);
   console.log(`Spot   $${usd(spotE8)}\n`);
 
-  const total = Number(await factory.windowCount());
-  const windows = await factory.getWindows(0, total);
+  const windows = await allWindows(factory);
 
   // The cells worth trading are the live ones nearest the money: a book at 0.03
   // has nothing to lift that anyone would want.

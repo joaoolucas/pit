@@ -30,7 +30,7 @@ const dictionary = {
 
     "board.empty": "Nenhuma célula neste intervalo.",
     "board.emptyHint":
-      "O roller abre as próximas colunas a cada minuto. Rode npm --prefix packages/contracts run tick para abrir agora.",
+      "O roller abre as próximas colunas a cada minuto. Rode {command} para abrir agora.",
     "board.realised": "Últimos {minutes} min",
     "board.now": "Agora",
     "board.strike": "Strike",
@@ -159,7 +159,7 @@ const dictionary = {
 
     "board.empty": "No cells in this range.",
     "board.emptyHint":
-      "The roller opens the next columns every minute. Run npm --prefix packages/contracts run tick to open them now.",
+      "The roller opens the next columns every minute. Run {command} to open them now.",
     "board.realised": "Last {minutes} min",
     "board.now": "Now",
     "board.strike": "Strike",

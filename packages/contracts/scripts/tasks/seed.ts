@@ -16,7 +16,15 @@ import type { ContractTransactionReceipt, Interface } from "ethers";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEPLOYMENTS_DIR, fetchAnnualisedVol, fetchSpotE8, nowSeconds, readDeployment, usd } from "../lib";
+import {
+  allWindows,
+  DEPLOYMENTS_DIR,
+  fetchAnnualisedVol,
+  fetchSpotE8,
+  nowSeconds,
+  readDeployment,
+  usd,
+} from "../lib";
 import type { PitFactory, MockERC20 } from "../../typechain-types";
 import { fairProbabilityAbove } from "../../../core/src/windows";
 import { contractsToSize, probToTick, quoteCost, tickToProb } from "../../../core/src/kuru";
@@ -78,8 +86,7 @@ export async function seedBooks(options: SeedOptions = {}): Promise<SeedResult> 
     console.log(`Maker ${maker.address}   ${balance} ${deployment.collateralSymbol}\n`);
   }
 
-  const total = Number(await factory.windowCount());
-  const windows = await factory.getWindows(0, total);
+  const windows = await allWindows(factory);
   const quotes = readQuotes();
   const size = contractsToSize(quoteContracts);
   const halfSpread = spreadBps / 20_000; // bps of probability, halved

@@ -106,3 +106,32 @@ export function nowSeconds(): number {
 export function usd(e8: bigint): string {
   return (Number(e8) / 1e8).toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
+
+/**
+ * Every window, read in pages.
+ *
+ * `getWindows` takes an offset and a limit for a reason, and every caller was
+ * passing the whole count as the limit — which works right up until it does not.
+ * A board that has been rolling for a while has hundreds of windows, and
+ * decoding all of them inside one `eth_call` runs the node out of gas: the ops
+ * scripts start failing with "Transaction ran out of gas" on a *read*, and the
+ * board stops being seeded and settled while looking, from the outside, like a
+ * write problem.
+ *
+ * Pages are concatenated in id order, so the result is still indexable by
+ * windowId — which is how all three callers use it.
+ */
+export async function allWindows<W>(
+  factory: {
+    windowCount(): Promise<bigint>;
+    getWindows(offset: number, limit: number): Promise<W[]>;
+  },
+  pageSize = 100,
+): Promise<W[]> {
+  const total = Number(await factory.windowCount());
+  const windows: W[] = [];
+  for (let offset = 0; offset < total; offset += pageSize) {
+    windows.push(...(await factory.getWindows(offset, Math.min(pageSize, total - offset))));
+  }
+  return windows;
+}

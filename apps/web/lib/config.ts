@@ -32,3 +32,17 @@ export const CELL_POLL_MS = 700;
 export const PRICE_POLL_MS = 3000;
 
 export const isConfigured = Boolean(pitFactoryAddress && collateralAddress);
+
+/**
+ * The command that opens the next columns, for the chain this build points at.
+ *
+ * The empty state used to name `tick` unconditionally, and `tick` targets Monad
+ * testnet — so anyone running the board against a local Hardhat node was told to
+ * send transactions to a public network that would not fill the board in front
+ * of them. The app knows which chain it is on; it may as well say the right
+ * thing.
+ */
+export const rollCommand =
+  chain.id === 31337
+    ? "npm --prefix packages/contracts run tick:local"
+    : "npm --prefix packages/contracts run tick";
