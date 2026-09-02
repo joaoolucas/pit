@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOpenRisk }: Props) {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
 
   return (
     <header className="shrink-0 px-2 pt-2">
@@ -65,24 +65,6 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
           >
             {t("risk.more")}
           </button>
-
-          <div className="chip flex overflow-hidden text-[11px] font-extrabold">
-            {(["pt-BR", "en"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setLocale(option)}
-                aria-pressed={locale === option}
-                className="px-2.5 py-1 transition-colors"
-                style={{
-                  background: locale === option ? "var(--color-raised)" : "transparent",
-                  color: locale === option ? "var(--color-foam)" : "var(--color-foam-faint)",
-                }}
-              >
-                {option === "pt-BR" ? "PT" : "EN"}
-              </button>
-            ))}
-          </div>
 
           <WalletButton />
         </div>

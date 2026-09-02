@@ -1,154 +1,24 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, type ReactNode } from "react";
 
 /**
- * Portuguese and English, both first-class.
+ * The copy, in one place.
  *
- * The first users are Brazilian orderflow traders, so pt-BR is not a layer
- * bolted on afterwards — it is the default when the browser says pt, and the
- * vocabulary is the one a tape reader actually uses ("livro", "fita", "ponta"),
- * not a literal rendering of the English.
+ * English only. The indirection stays because it keeps every string the product
+ * says in one file, where the wording can be argued about without going through
+ * nine components.
  *
  * Two rules for the copy in here. An action names what happens when it is used
- * and keeps that name through the whole flow: the button that says "Comprar YES
- * a 62¢" produces "Comprou 40 YES a 62¢". And an empty state is an instruction,
+ * and keeps that name through the whole flow: the button that says "Buy YES at
+ * 62¢" produces "Bought 40 YES at 62¢". And an empty state is an instruction,
  * not a mood — "nobody is quoting this one yet" is followed by what to do about
  * it.
  */
 
-export type Locale = "pt-BR" | "en";
+export type Locale = "en";
 
 const dictionary = {
-  "pt-BR": {
-    "app.tagline": "A cadeia de opções de 5 minutos, no livro onchain da Kuru.",
-
-    "wallet.connect": "Conectar carteira",
-    "wallet.connecting": "Conectando…",
-    "wallet.none": "Nenhuma carteira encontrada",
-    "wallet.switch": "Mudar para {chain}",
-
-    "board.empty": "Nenhuma célula neste intervalo.",
-    "board.emptyHint":
-      "O roller abre as próximas colunas a cada minuto. Rode {command} para abrir agora.",
-    "board.realised": "Últimos {minutes} min",
-    "board.now": "Agora",
-    "board.strike": "Strike",
-    "board.strikeAxis": "BTC acima de",
-    "board.closed": "fechada",
-    "board.settling": "liquidando",
-    "board.yes": "YES",
-    "board.no": "NO",
-    "board.void": "ANUL",
-    "board.spot": "Preço agora",
-    "board.legendPay": "Número = quanto paga",
-    "board.legendDepth": "Cor = lado e tamanho no livro",
-    "board.legendHollow": "Vazado = ninguém cotando",
-    "board.legendTrace": "Preço do BTC",
-    "board.legendHint": "Clique numa célula para operar",
-    "board.noDepth": "sem livro",
-    "board.cardDepth": "No livro",
-    "board.cardMakers": "Cotando",
-    "board.cardSpread": "Spread",
-    "board.cardLeft": "faltam {clock}",
-    "board.cardClosed": "fechada",
-    "board.titleWidth": "spread {width}",
-    "board.titleMakers": "{makers} na ponta",
-
-    "cell.select": "Escolha uma célula.",
-    "cell.selectHint": "Você vê o livro ao vivo, a fita e quem está cotando — e pode cotar também.",
-    "cell.claim": "BTC acima de {strike}",
-    "cell.closes": "fecha {time}",
-    "cell.expired": "encerrada",
-    "cell.book": "Livro",
-    "cell.tape": "Fita",
-    "cell.flow": "Fluxo",
-    "cell.notes": "Notas",
-    "cell.makers": "Na ponta",
-    "cell.noMakers": "Ninguém cotando ainda.",
-    "cell.noBook": "Livro vazio.",
-    "cell.noBookHint": "Poste um preço na aba Cotar e você é a primeira ponta desta célula.",
-    "cell.price": "Preço",
-    "cell.size": "Qtd",
-    "cell.orders": "Ordens",
-    "cell.width": "Spread",
-    "cell.usePrice": "Usar este preço",
-    "cell.traded": "negociados",
-    "cell.cvd": "CVD",
-    "cell.noFills": "Nenhum negócio ainda.",
-    "cell.onKuru": "Livro na Kuru · {market}",
-    "cell.arb": "compre as duas pernas e trave {edge}",
-    "cell.overround": "{over} de spread nas duas pernas",
-    "cell.outcome.yes": "Liquidada em YES",
-    "cell.outcome.no": "Liquidada em NO",
-    "cell.outcome.void": "Anulada · cada perna paga 50¢",
-
-    "ticket.take": "Tomar",
-    "ticket.make": "Cotar",
-    "ticket.yes": "YES",
-    "ticket.no": "NO",
-    "ticket.amount": "Quanto em dólares",
-    "ticket.toWin": "Recebe se acertar",
-    "ticket.takeDetail": "{contracts} contratos a {price} · custa ${spend} · {multiple}",
-    "ticket.noOffer": "Ninguém vendendo esta perna",
-    "ticket.tooSmall": "Aumente o valor: não dá para um contrato inteiro.",
-    "ticket.buyAction": "Comprar {side} a {price}",
-    "ticket.price": "Preço",
-    "ticket.size": "Contratos",
-    "ticket.makeDetail": "Trava ${locks} {symbol} e paga ${pays} se a perna vencer.",
-    "ticket.makeInvalid": "Preço entre 1¢ e 99¢, quantidade acima de zero.",
-    "ticket.postBid": "Postar compra",
-    "ticket.postAsk": "Postar venda",
-    "ticket.needInventory":
-      "Para vender uma perna você precisa dos tokens. Trave colateral e receba YES + NO.",
-    "ticket.mint": "Travar {size} {symbol} e emitir YES + NO",
-    "ticket.myOrders": "Minhas ordens",
-    "ticket.cancelAll": "Cancelar todas",
-    "ticket.noOrders": "Nenhuma ordem aberta nesta célula.",
-    "ticket.bid": "compra",
-    "ticket.ask": "venda",
-    "ticket.needWallet": "Conecte a carteira para operar.",
-    "ticket.redeem": "Resgatar",
-    "ticket.redeemBlurb": "A perna vencedora paga $1 por contrato.",
-    "ticket.sending": "Enviando…",
-    "ticket.posting": "Postando…",
-    "ticket.cancelling": "Cancelando…",
-    "ticket.minting": "Emitindo…",
-    "ticket.redeeming": "Resgatando…",
-    "ticket.bought": "Comprou {contracts} {side} a {price}.",
-    "ticket.posted": "Postou {size} {side} a {price}.",
-    "ticket.cancelled": "Ordens canceladas.",
-    "ticket.minted": "Emitiu {size} YES + {size} NO.",
-    "ticket.redeemed": "Resgatado.",
-
-    "notes.blurb":
-      "Criptografadas com a sua passkey. O servidor guarda só o texto cifrado — a mesma passkey em outro aparelho abre as mesmas notas.",
-    "notes.enroll": "Criar passkey",
-    "notes.unlock": "Desbloquear com passkey",
-    "notes.unlocking": "Aguardando a passkey…",
-    "notes.placeholder": "Por que você está nesta célula? Só você lê isto.",
-    "notes.save": "Salvar",
-    "notes.saving": "Salvando…",
-    "notes.saved": "Salvo",
-    "notes.lock": "Bloquear",
-    "notes.unsupported": "Este navegador não expõe a extensão PRF do WebAuthn.",
-    "notes.crossDevice": "Cofre {vault} · aberto com a passkey",
-
-    "risk.title": "Isto é um mercado de previsão. Leia antes de operar.",
-    "risk.body":
-      "Cada contrato paga $1 se a perna vencer e nada se perder. Você pode perder tudo o que colocou. A liquidação usa um preço de referência público no fechamento da janela. Rede de teste: os tokens não valem dinheiro.",
-    "risk.accept": "Entendi",
-    "risk.more": "Risco",
-
-    "status.indexer": "Indexador",
-    "status.stale": "atrasado {seconds}s",
-    "status.down": "fora do ar",
-    "status.live": "ao vivo",
-    "status.loading": "Carregando o tabuleiro",
-    "status.notConfigured":
-      "Defina NEXT_PUBLIC_PIT_FACTORY e NEXT_PUBLIC_INDEXER_URL para conectar a um deploy.",
-  },
-
   en: {
     "app.tagline": "The five-minute option chain, on Kuru's onchain book.",
 
@@ -282,51 +152,17 @@ export type TranslationKey = keyof (typeof dictionary)["en"];
 
 type I18nState = {
   locale: Locale;
-  setLocale: (locale: Locale) => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 };
 
 const I18nContext = createContext<I18nState | null>(null);
 
-const STORAGE_KEY = "cell.locale";
-
 export function I18nProvider({ children }: { children: ReactNode }) {
-  // Start on en so server and first client render agree, then adopt the stored
-  // or browser preference. Guessing during SSR would only cause a flash.
-  const [locale, setLocaleState] = useState<Locale>("en");
-
-  useEffect(() => {
-    let next: Locale | null = null;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "pt-BR" || stored === "en") next = stored;
-    } catch {
-      /* storage unavailable; fall through to the browser hint */
-    }
-    if (!next && navigator.language?.toLowerCase().startsWith("pt")) next = "pt-BR";
-    if (next) setLocaleState(next);
-    // Intentionally once, on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // A screen reader reads the page in whatever `lang` says, so a Portuguese
-  // board announced as English is not a nicety — it is unintelligible.
-  useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
-
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* a preference we cannot persist is still a preference for this session */
-    }
-  }, []);
+  const locale: Locale = "en";
 
   const t = useCallback(
     (key: TranslationKey, vars?: Record<string, string | number>) => {
-      const template: string = dictionary[locale][key] ?? dictionary.en[key] ?? key;
+      const template: string = dictionary[locale][key] ?? key;
       if (!vars) return template;
       return template.replace(/\{(\w+)\}/g, (match, name: string) =>
         name in vars ? String(vars[name]) : match,
@@ -335,7 +171,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [locale],
   );
 
-  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>;
+  return <I18nContext.Provider value={{ locale, t }}>{children}</I18nContext.Provider>;
 }
 
 export function useI18n(): I18nState {
