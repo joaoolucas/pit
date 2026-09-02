@@ -10,7 +10,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///
 /// @dev This exists for exactly two reasons and neither of them is the product:
 ///
-///        1. CellFactory tests must run on a bare Hardhat node, where Kuru is not
+///        1. PitFactory tests must run on a bare Hardhat node, where Kuru is not
 ///           deployed.
 ///        2. The Envio handlers need a local source of real logs with the real
 ///           event signatures, so `npm run indexer:dev` can be exercised without

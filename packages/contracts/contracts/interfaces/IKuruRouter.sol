@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @notice Subset of the Kuru Router (market factory) that Cell depends on.
+/// @notice Subset of the Kuru Router (market factory) that Pit depends on.
 /// @dev Verified against the ABI shipped in `kuru-labs/kuru-sdk v0.0.95`
 ///      (`abi/Router.json`). Monad testnet: 0x7EFbE105Ca7415dE98F96622173458ac1c054630
 interface IKuruRouter {

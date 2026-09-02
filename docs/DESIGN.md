@@ -2,7 +2,7 @@
 
 ## The thesis
 
-Cell is not a chart with tiles on it. **Cell is an option chain for five-minute
+Pit is not a chart with tiles on it. **Pit is an option chain for five-minute
 binaries.**
 
 Strikes down one axis, expiries across the other, prices in the cells: that
@@ -15,7 +15,7 @@ Everything else in this document follows from that sentence.
 
 ## What the competition looks like
 
-| | Grid Arena | Polymarket 5m | Outrive | Cell |
+| | Grid Arena | Polymarket 5m | Outrive | Pit |
 | --- | --- | --- | --- | --- |
 | Board shape | time × direction (2 rows), *or* a 1-column strike ladder | one up/down market per window | a chat room | **time × strike, together** |
 | The book | "no depth" | off-chain matching, on-chain settlement | — | **a public onchain CLOB anyone can quote on** |
@@ -25,10 +25,10 @@ Everything else in this document follows from that sentence.
 Grid Arena's structure is right and this design borrows it: one continuous
 canvas, price on the left, markets on the right, price axis on the far right,
 payout multiple as the headline number. Their entry ergonomics are right too —
-dollars, cents, quick-add chips, "to win" — and market-standard, so Cell speaks
+dollars, cents, quick-add chips, "to win" — and market-standard, so Pit speaks
 the same way.
 
-Where Cell diverges is the half nobody else has: a real book per leg. That is
+Where Pit diverges is the half nobody else has: a real book per leg. That is
 what the visual language is built to show.
 
 ## Palette — "sounding"
@@ -94,7 +94,7 @@ thing a payout tile can never tell you: where you can actually trade. Grid Arena
 prints the words "no depth" in the cell; here depth is the material the board is
 made of.
 
-The encoding lives in `tileInk` in `@cell/core`, with tests, because it is a
+The encoding lives in `tileInk` in `@pit/core`, with tests, because it is a
 claim about the data and not a styling detail.
 
 ## The panel: a spine, and the number nobody else can show
@@ -127,7 +127,7 @@ Polymarket and Grid Arena use; a trader should not have to learn a new ticket to
 try a new venue.
 
 **Make** is a price and a size, which is what someone posting a quote actually
-decides. It is the half no payout tile can offer: on Cell you can be the one
+decides. It is the half no payout tile can offer: on Pit you can be the one
 collecting the spread. Post-only by default, so a quote meant to rest can never
 accidentally cross.
 
@@ -159,7 +159,7 @@ product that is genuinely available to the reader.
 And numbers say what they are. The ticket used to print "max payout" on a sell,
 which is the *buyer's* number — a seller collects the premium and owes the
 notional. It now says **max loss** and **premium received**, and the arithmetic
-lives in `payoff` in `@cell/core` next to its tests.
+lives in `payoff` in `@pit/core` next to its tests.
 
 ## What was tried and rejected
 

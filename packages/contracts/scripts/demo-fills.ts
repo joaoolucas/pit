@@ -30,7 +30,7 @@ async function main() {
   // Prefer a different account from the maker, so the tape has two sides.
   const taker = signers[1] ?? signers[0]!;
 
-  const factory = await ethers.getContractAt("CellFactory", deployment.cellFactory);
+  const factory = await ethers.getContractAt("PitFactory", deployment.pitFactory);
   const collateral = await ethers.getContractAt("MockERC20", deployment.collateral);
   const spotE8 = await fetchSpotE8(process.env.UNDERLYING ?? "BTC-USD");
   const now = nowSeconds();

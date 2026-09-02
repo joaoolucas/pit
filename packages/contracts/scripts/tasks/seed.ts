@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { DEPLOYMENTS_DIR, fetchAnnualisedVol, fetchSpotE8, nowSeconds, readDeployment, usd } from "../lib";
-import type { CellFactory, MockERC20 } from "../../typechain-types";
+import type { PitFactory, MockERC20 } from "../../typechain-types";
 import { fairProbabilityAbove } from "../../../core/src/windows";
 import { contractsToSize, probToTick, quoteCost, tickToProb } from "../../../core/src/kuru";
 
@@ -61,7 +61,7 @@ export async function seedBooks(options: SeedOptions = {}): Promise<SeedResult> 
 
   const deployment = readDeployment();
   const [maker] = await ethers.getSigners();
-  const factory = await ethers.getContractAt("CellFactory", deployment.cellFactory);
+  const factory = await ethers.getContractAt("PitFactory", deployment.pitFactory);
   const collateral = await ethers.getContractAt("MockERC20", deployment.collateral);
   const decimals = deployment.collateralDecimals;
 
@@ -162,7 +162,7 @@ async function topUpFromFaucet(collateral: MockERC20, maker: string, decimals: n
 
 /** Mint enough sets that both legs can be sold at the quoted size. */
 async function ensureInventory(
-  factory: CellFactory,
+  factory: PitFactory,
   collateral: MockERC20,
   maker: string,
   windowId: number,

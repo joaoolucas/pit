@@ -483,7 +483,7 @@ export async function touchAccount(
 }
 
 // ---------------------------------------------------------------------------
-// CellFactory folds
+// PitFactory folds
 //
 // Shared with the local dev harness so a window opens the same way whether the
 // logs arrive from HyperSync or from eth_getLogs on a Hardhat node.

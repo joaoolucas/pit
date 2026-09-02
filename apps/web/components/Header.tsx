@@ -3,7 +3,7 @@
 import { chain, isConfigured } from "@/lib/config";
 import { useI18n } from "@/lib/i18n";
 import { useWallet } from "@/lib/wallet";
-import { e8ToUsd, shortAddress } from "@cell/core";
+import { e8ToUsd, shortAddress } from "@pit/core";
 
 type Props = {
   spotE8: bigint | null;
@@ -33,7 +33,7 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
               />
             ))}
           </span>
-          <span className="readout text-[14px] font-semibold tracking-[-0.02em]">Cell</span>
+          <span className="readout text-[14px] font-semibold tracking-[-0.02em]">Pit</span>
           <span className="hidden text-[11px] text-[var(--color-foam-faint)] xl:inline">
             {t("app.tagline")}
           </span>

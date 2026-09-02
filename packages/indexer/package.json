@@ -1,9 +1,9 @@
 {
-  "name": "@cell/indexer",
+  "name": "@pit/indexer",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Envio HyperIndex indexer. The book a Cell shows is this data, not an RPC poll.",
+  "description": "Envio HyperIndex indexer. The book Pit shows is this data, not an RPC poll.",
   "scripts": {
     "codegen": "envio codegen",
     "dev": "envio dev",

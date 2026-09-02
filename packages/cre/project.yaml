@@ -1,4 +1,4 @@
-# Cell — Chainlink CRE project configuration.
+# Pit — Chainlink CRE project configuration.
 #
 # `cre init` writes this file; it is checked in so the workflow is reproducible.
 # If a newer CLI rejects a field, regenerate with `cre init` and re-apply the two

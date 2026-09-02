@@ -1,10 +1,10 @@
-import { chainById, type ChainConfig } from "@cell/core";
+import { chainById, type ChainConfig } from "@pit/core";
 
 /**
  * Runtime configuration, read once.
  *
  * Everything here comes from NEXT_PUBLIC_* so a deployment can be repointed at a
- * different CellFactory without a rebuild of anything but the env.
+ * different PitFactory without a rebuild of anything but the env.
  */
 
 const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 10143);
@@ -15,7 +15,7 @@ export const chain: ChainConfig = {
   explorerUrl: process.env.NEXT_PUBLIC_EXPLORER_URL || chainById(chainId).explorerUrl,
 };
 
-export const cellFactoryAddress = (process.env.NEXT_PUBLIC_CELL_FACTORY ?? "") as `0x${string}`;
+export const pitFactoryAddress = (process.env.NEXT_PUBLIC_PIT_FACTORY ?? "") as `0x${string}`;
 export const collateralAddress = (process.env.NEXT_PUBLIC_COLLATERAL ?? "") as `0x${string}`;
 
 export const indexerUrl = process.env.NEXT_PUBLIC_INDEXER_URL ?? "http://localhost:8080/v1/graphql";
@@ -31,4 +31,4 @@ export const GRID_POLL_MS = 1200;
 export const CELL_POLL_MS = 700;
 export const PRICE_POLL_MS = 3000;
 
-export const isConfigured = Boolean(cellFactoryAddress && collateralAddress);
+export const isConfigured = Boolean(pitFactoryAddress && collateralAddress);

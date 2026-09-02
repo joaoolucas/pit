@@ -24,15 +24,15 @@ const deployment = JSON.parse(fs.readFileSync(deploymentFile, "utf8"));
 const config = JSON.parse(fs.readFileSync(configFile, "utf8"));
 
 const target = config.evms[0];
-target.cellFactoryAddress = deployment.cellFactory;
+target.pitFactoryAddress = deployment.pitFactory;
 target.receiverAddress = deployment.settlementReceiver;
 
 fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-console.log(`${configName} -> factory ${target.cellFactoryAddress}, receiver ${target.receiverAddress}`);
+console.log(`${configName} -> factory ${target.pitFactoryAddress}, receiver ${target.receiverAddress}`);
 
 if (!deployment.creForwarder) {
   console.warn(
-    "\nThe deployment has no CRE Forwarder yet, so CellFactory.settler is still the deploy key.\n" +
+    "\nThe deployment has no CRE Forwarder yet, so PitFactory.settler is still the deploy key.\n" +
       "After `cre workflow deploy`, take the Forwarder address for your DON and run:\n" +
       `  receiver.setForwarder(<forwarder>)\n  factory.setSettler(${deployment.settlementReceiver})`,
   );

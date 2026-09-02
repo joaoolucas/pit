@@ -75,7 +75,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
       setError(null);
       try {
         const next =
-          mode === "enroll" ? await enroll("Cell notes") : await unlock(knownCredential.current);
+          mode === "enroll" ? await enroll("Pit notes") : await unlock(knownCredential.current);
         rememberCredential(next.credential);
         knownCredential.current = next.credential;
         setSession(next);

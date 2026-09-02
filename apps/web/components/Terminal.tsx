@@ -20,7 +20,7 @@ import {
   visibleStrikes,
   WINDOW_SECONDS,
   type Side,
-} from "@cell/core";
+} from "@pit/core";
 
 /**
  * One settled column is kept on the board, immediately left of the live one.

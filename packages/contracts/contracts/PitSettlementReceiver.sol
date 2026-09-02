@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-import {CellFactory} from "./CellFactory.sol";
+import {PitFactory} from "./PitFactory.sol";
 
 /// @notice The Keystone receiver interface a Chainlink Forwarder calls into.
 /// @dev Declared here rather than imported so this repo has no dependency on a
@@ -15,13 +15,13 @@ interface IReceiver is IERC165 {
     function onReport(bytes calldata metadata, bytes calldata report) external;
 }
 
-/// @title CellSettlementReceiver
-/// @notice The onchain half of Cell's Chainlink CRE settlement.
+/// @title PitSettlementReceiver
+/// @notice The onchain half of Pit's Chainlink CRE settlement.
 ///
 /// @dev The CRE workflow reads a reference price off-chain and the window clock
 ///      on-chain, decides which windows have closed, and writes one signed report.
 ///      The Forwarder delivers it here; this contract decodes it and calls
-///      `CellFactory.settle` for each window in the batch.
+///      `PitFactory.settle` for each window in the batch.
 ///
 ///      Three deliberate choices:
 ///
@@ -32,11 +32,11 @@ interface IReceiver is IERC165 {
 ///          idempotent-by-revert (`AlreadyResolved`), and a retried report must
 ///          not strand the windows that had not been settled yet.
 ///        * There is no privileged path back out. This contract can only call
-///          `settle`, and `CellFactory.voidWindow` still lets anyone rescue a
+///          `settle`, and `PitFactory.voidWindow` still lets anyone rescue a
 ///          window this receiver never resolves.
-contract CellSettlementReceiver is IReceiver, Ownable2Step {
-    /// @notice The Cell deployment this receiver settles for.
-    CellFactory public immutable factory;
+contract PitSettlementReceiver is IReceiver, Ownable2Step {
+    /// @notice The Pit deployment this receiver settles for.
+    PitFactory public immutable factory;
 
     /// @notice The Chainlink Forwarder allowed to deliver reports.
     address public forwarder;
@@ -55,7 +55,7 @@ contract CellSettlementReceiver is IReceiver, Ownable2Step {
     error BadPrice();
 
     constructor(address owner_, address factory_, address forwarder_) Ownable(owner_) {
-        factory = CellFactory(factory_);
+        factory = PitFactory(factory_);
         forwarder = forwarder_;
         emit ForwarderUpdated(address(0), forwarder_);
     }

@@ -60,7 +60,7 @@ async function main() {
   const markets = new Set<string>();
 
   let cursor = deployment.startBlock;
-  console.log(`Local indexer: CellFactory ${deployment.cellFactory} from block ${cursor}`);
+  console.log(`Local indexer: PitFactory ${deployment.pitFactory} from block ${cursor}`);
 
   const blockTimes = new Map<number, number>();
   const timestampOf = async (blockNumber: number) => {
@@ -86,7 +86,7 @@ async function main() {
     const discovery = await provider.getLogs({
       fromBlock: cursor,
       toBlock: head,
-      address: deployment.cellFactory,
+      address: deployment.pitFactory,
     });
     for (const log of discovery) {
       const parsed = factoryIface.parseLog({ topics: [...log.topics], data: log.data });
@@ -99,13 +99,13 @@ async function main() {
     const logs = await provider.getLogs({
       fromBlock: cursor,
       toBlock: head,
-      address: [deployment.cellFactory, ...markets],
+      address: [deployment.pitFactory, ...markets],
     });
 
     for (const log of logs) {
       const block = { number: log.blockNumber, timestamp: await timestampOf(log.blockNumber) };
 
-      if (log.address.toLowerCase() === deployment.cellFactory.toLowerCase()) {
+      if (log.address.toLowerCase() === deployment.pitFactory.toLowerCase()) {
         await handleFactoryLog(log, block);
         continue;
       }

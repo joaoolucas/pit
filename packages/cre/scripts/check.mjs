@@ -4,7 +4,7 @@
  * `cre workflow simulate` needs the CRE CLI and a funded key. These three checks
  * do not, and they catch the failures that actually happen:
  *
- *   1. abi.ts drifting from the compiled CellFactory
+ *   1. abi.ts drifting from the compiled PitFactory
  *   2. config.*.json still pointing at the zero address after a redeploy
  *   3. price parsing losing a cent
  *
@@ -19,7 +19,7 @@ import { parseE8, formatE8 } from "../settle-workflow/price.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const workflow = path.resolve(here, "../settle-workflow");
-const artifact = path.resolve(here, "../../contracts/artifacts/contracts/CellFactory.sol/CellFactory.json");
+const artifact = path.resolve(here, "../../contracts/artifacts/contracts/PitFactory.sol/PitFactory.json");
 
 let failures = 0;
 const fail = (message) => {
@@ -30,14 +30,14 @@ const pass = (message) => console.log(`  ok    ${message}`);
 
 // --- 1. the ABI fragment still matches the contract -----------------------
 if (!fs.existsSync(artifact)) {
-  console.warn("  skip  CellFactory artifact not found — run: npm --prefix ../contracts run build");
+  console.warn("  skip  PitFactory artifact not found — run: npm --prefix ../contracts run build");
 } else {
   const compiled = JSON.parse(fs.readFileSync(artifact, "utf8")).abi;
   const source = fs.readFileSync(path.join(workflow, "abi.ts"), "utf8");
 
   const onchain = compiled.find((f) => f.type === "function" && f.name === "pendingSettlement");
   if (!onchain) {
-    fail("CellFactory no longer has pendingSettlement — the workflow's only read is gone");
+    fail("PitFactory no longer has pendingSettlement — the workflow's only read is gone");
   } else {
     const signature = `pendingSettlement(${onchain.inputs.map((i) => i.type).join(",")})`;
     const outputs = onchain.outputs.map((o) => o.type).join(",");
@@ -57,7 +57,7 @@ for (const file of ["config.staging.json", "config.production.json"]) {
     fail(`${file}: evms[0] is missing`);
     continue;
   }
-  const zeros = ["cellFactoryAddress", "receiverAddress"].filter((key) => /^0x0{40}$/i.test(target[key] ?? ""));
+  const zeros = ["pitFactoryAddress", "receiverAddress"].filter((key) => /^0x0{40}$/i.test(target[key] ?? ""));
   if (zeros.length > 0) {
     console.warn(`  warn  ${file}: ${zeros.join(", ")} still zero — run: npm run sync`);
   } else {

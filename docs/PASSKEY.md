@@ -1,10 +1,10 @@
 # The passkey is not the wallet
 
-Cell uses [mera](https://github.com/category-labs/mera) and WebAuthn's PRF
+Pit uses [mera](https://github.com/category-labs/mera) and WebAuthn's PRF
 extension. It deliberately does **not** use them the way the library's headline
 demo does.
 
-Mera can derive an EVM account from a passkey. Cell does not do that. The PRF
+Mera can derive an EVM account from a passkey. Pit does not do that. The PRF
 output derived here never becomes a signing key, never touches a transaction, and
 lives in a different file (`apps/web/lib/notes.ts`) from everything that signs
 (`apps/web/lib/wallet.ts`). Trading is signed by an ordinary Monad wallet.
@@ -17,7 +17,7 @@ second device opens the same notes, and nothing readable is ever stored on a
 server.
 
 ```
-namespace   "cell.prf.v1|<rpId>|notes"
+namespace   "pit.prf.v1|<rpId>|notes"
 salt        SHA-256(namespace)                       32 bytes, public, deterministic
 PRF         WebAuthn hmac-secret over that salt      32 bytes, per credential
 key         HKDF-SHA-256(PRF, info "cell.v1.notes.aead")  → AES-256-GCM, non-extractable
@@ -34,12 +34,12 @@ credential over the same salt returns the same 32 bytes, on any device the
 passkey has synced to.
 
 Its job is domain separation. A second namespace
-(`cell.prf.v1|<rpId>|drafts`) yields a completely unrelated key from the same
+(`pit.prf.v1|<rpId>|drafts`) yields a completely unrelated key from the same
 passkey, so notes and drafts cannot decrypt each other, and neither could a
 future feature that happened to reuse the credential.
 
 Mera's own `createSecretVaultWithNewPasskey` generates a fresh random salt per
-vault, which is the right default for a single high-value secret. Cell needs many
+vault, which is the right default for a single high-value secret. Pit needs many
 small secrets under one unlock, so it evaluates a namespaced salt with
 `getPasskeyPrfOutput` and derives one key for the session.
 

@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title OutcomeToken
-/// @notice One leg (YES or NO) of a single Cell window. Freely transferable so it
+/// @notice One leg (YES or NO) of a single Pit window. Freely transferable so it
 ///         can be listed as the base asset of a Kuru spot market; supply is only
-///         ever created or destroyed by the CellFactory that deployed it.
+///         ever created or destroyed by the PitFactory that deployed it.
 /// @dev YES + NO are always minted and burned together as a "set" worth exactly
 ///      1 unit of collateral, so `yes.totalSupply() == no.totalSupply()` holds for
 ///      the whole life of a window and the factory is always fully collateralised.
 contract OutcomeToken is ERC20 {
-    /// @notice The CellFactory allowed to mint and burn. Immutable: a cell's supply
+    /// @notice The PitFactory allowed to mint and burn. Immutable: a cell's supply
     ///         can never be moved under a different controller.
     address public immutable controller;
 

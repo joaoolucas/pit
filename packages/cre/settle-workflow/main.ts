@@ -1,14 +1,14 @@
 /**
- * Cell settlement — a Chainlink CRE workflow.
+ * Pit settlement — a Chainlink CRE workflow.
  *
  * Every 30 seconds:
  *
- *   1. read the onchain clock — `CellFactory.pendingSettlement` returns the
+ *   1. read the onchain clock — `PitFactory.pendingSettlement` returns the
  *      windows whose `endTs` has passed and that nobody has resolved
  *   2. if there are any, read the reference price off-chain over HTTP, once per
  *      DON node, and take the median
  *   3. encode one report for the whole batch, have the DON sign it, and write it
- *      to CellSettlementReceiver, which calls `settle` for each window
+ *      to PitSettlementReceiver, which calls `settle` for each window
  *
  * Why this shape:
  *
@@ -44,14 +44,14 @@ import {
   type Address,
 } from "viem";
 
-import { CELL_FACTORY_ABI } from "./abi";
+import { PIT_FACTORY_ABI } from "./abi";
 import { formatE8, parseE8 } from "./price";
 
 type EvmTarget = {
   /** A CRE chain selector name, e.g. "monad-testnet". */
   chainName: string;
   isTestnet: boolean;
-  cellFactoryAddress: Address;
+  pitFactoryAddress: Address;
   receiverAddress: Address;
   gasLimit: string;
   /** How many of the newest windows to scan for stragglers. */
@@ -92,9 +92,9 @@ const onCron = async (runtime: Runtime<Config>): Promise<string> => {
     .callContract(runtime, {
       call: encodeCallMsg({
         from: NO_SENDER,
-        to: target.cellFactoryAddress,
+        to: target.pitFactoryAddress,
         data: encodeFunctionData({
-          abi: CELL_FACTORY_ABI,
+          abi: PIT_FACTORY_ABI,
           functionName: "pendingSettlement",
           args: [BigInt(target.lookbackWindows), BigInt(target.maxWindowsPerReport)],
         }),
@@ -103,7 +103,7 @@ const onCron = async (runtime: Runtime<Config>): Promise<string> => {
     .result();
 
   const pending = decodeFunctionResult({
-    abi: CELL_FACTORY_ABI,
+    abi: PIT_FACTORY_ABI,
     functionName: "pendingSettlement",
     data: bytesToHex(pendingCall.data),
   }) as readonly bigint[];
@@ -150,7 +150,7 @@ const onCron = async (runtime: Runtime<Config>): Promise<string> => {
 
 /**
  * Runs on each DON node. Returns the price scaled by 1e8, the same scale
- * CellFactory stores strikes in, so no conversion happens anywhere else.
+ * PitFactory stores strikes in, so no conversion happens anywhere else.
  *
  * Returning a bigint rather than a float matters: median consensus over floats
  * would let representation noise decide a window that settles on the last cent.

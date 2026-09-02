@@ -1,4 +1,4 @@
-# Cell
+# Pit
 
 **An option chain for five-minute binaries, on Monad.**
 
@@ -13,7 +13,7 @@ onchain CLOB. Click one and you get the live book, the tape, and the address
 standing on it. Place, cancel, or **quote it yourself**, through Kuru.
 Settlement is a Chainlink CRE workflow writing onchain.
 
-No mock books. No static JSON. If Kuru is down, Cell is down.
+No mock books. No static JSON. If Kuru is down, Pit is down.
 
 ![The board: five-minute columns, a $50 strike ladder for rows, BTC drawn across it, and one cell open with its live Kuru book](docs/img/grid.jpg)
 
@@ -35,7 +35,7 @@ Grid Arena and Outrive today, who read a tape and want to know what is resting a
 
 Not "crypto traders in general." The distinction decides the whole product:
 
-|                     | Grid Arena                                      | Polymarket 5m                | Cell                                        |
+|                     | Grid Arena                                      | Polymarket 5m                | Pit                                        |
 | ------------------- | ----------------------------------------------- | ---------------------------- | ------------------------------------------- |
 | Board              | time × direction, *or* a one-column strike ladder | one up/down market per window | **time × strike, together**                  |
 | The book           | "no depth"                                       | off-chain matching            | **a public onchain CLOB anyone can quote on** |
@@ -64,7 +64,7 @@ Design decisions and what was rejected: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ```
                     ┌──────────────────────────────────────────┐
-   roll-windows ───►│ CellFactory                              │
+   roll-windows ───►│ PitFactory                              │
    (cron, 1 min)    │  createWindow(BTC-USD, endTs, strike)    │
                     │    ├─ mints cYES / cNO (ERC-20, 6 dec)   │
                     │    └─ Router.deployProxy ×2 ──────────┐  │
@@ -88,8 +88,8 @@ Design decisions and what was rejected: [`docs/DESIGN.md`](docs/DESIGN.md).
                                                           ▼
                                                     the grid you see
 
-   Chainlink CRE ── price API + onchain clock ──► CellSettlementReceiver
-   (cron, 30s)                                     └─► CellFactory.settle
+   Chainlink CRE ── price API + onchain clock ──► PitSettlementReceiver
+   (cron, 30s)                                     └─► PitFactory.settle
 ```
 
 **The economics fit in four lines.** `mintSet(id, n)` locks `n` USDC and returns
@@ -110,7 +110,7 @@ Every dependency here drives a live feature. None of them is a logo.
 
 ### Kuru — New Assets *and* the consumer app
 
-`CellFactory.createWindow` deploys two ERC-20s and calls `Router.deployProxy`
+`PitFactory.createWindow` deploys two ERC-20s and calls `Router.deployProxy`
 twice, listing cYES/USDC and cNO/USDC with identical parameters (`pricePrecision`
 1e6, `tickSize` 1000 — a tick is 10 bps of probability). **The grid is the
 trading UI**: every order in this app goes through `@kuru-labs/kuru-sdk`'s own
@@ -136,11 +136,11 @@ covered by tests that replay a real event sequence. See
 A five-minute binary needs two facts from different places: **when** the window
 closed (onchain) and **what the price was** (not). CRE is the only thing that can
 hold both inside one attested execution. Every 30 seconds the workflow reads
-`CellFactory.pendingSettlement`, fetches the reference price once per DON node,
+`PitFactory.pendingSettlement`, fetches the reference price once per DON node,
 takes the median, and writes **one** report covering every window that closed —
 seven strikes close at the same instant, so a column costs one report, not seven.
 
-`CellSettlementReceiver` is the onchain half: ERC-165 `IReceiver`, gated on the
+`PitSettlementReceiver` is the onchain half: ERC-165 `IReceiver`, gated on the
 Forwarder, settling each window in a `try/catch` so one already-resolved window
 cannot sink the batch. See [`packages/cre/README.md`](packages/cre/README.md).
 
@@ -150,7 +150,7 @@ The PRF output derived here never becomes a signing key and never touches a
 transaction. Trading is signed by an ordinary Monad wallet.
 
 What the passkey does is encrypt your private notes on a cell. A **salt
-namespace** — `SHA-256("cell.prf.v1|<rpId>|notes")` — is evaluated by WebAuthn's
+namespace** — `SHA-256("pit.prf.v1|<rpId>|notes")` — is evaluated by WebAuthn's
 PRF extension and run through HKDF into one AES-256-GCM key. The cell's key is
 bound in as AAD, so a note cannot be moved between cells. The server stores
 ciphertext and will only hand it back to a caller that can present a tag derived
@@ -167,7 +167,7 @@ credential over the same salt returns the same 32 bytes. See
 You need Node 20+. Everything below works on macOS, Linux and Windows.
 
 ```bash
-git clone <this repo> && cd cell
+git clone <this repo> && cd pit
 npm install
 cp .env.example .env
 ```
@@ -211,7 +211,7 @@ codegen && envio dev`, which needs Linux, macOS or WSL2.
 
 ```bash
 # fund DEPLOYER_PRIVATE_KEY at https://faucet.monad.xyz, then
-npm run deploy:testnet        # CellFactory + CellSettlementReceiver + faucet USDC
+npm run deploy:testnet        # PitFactory + PitSettlementReceiver + faucet USDC
 TICK_WATCH=1 npm --prefix packages/contracts run tick   # settle + roll + seed, every minute
 
 npm --prefix packages/indexer run sync && npm --prefix packages/indexer run codegen
@@ -264,7 +264,7 @@ Targets, not themes. Each week has a number that is either hit or not.
 | 1    | Monad testnet deploy with the roller and seeder on cron, Envio Cloud indexer, CRE workflow deployed and the Forwarder wired so `settle` leaves the deploy key.                                          | **56 cells quoted two-sided, 24h a day, for 7 straight days.** Uptime is the product. |
 | 2    | Maker economics: quote off the book's own imbalance instead of a flat model, inventory skew across the two legs, and a public P&L page for the seeding account.                                          | **Seeding account P&L ≥ −2% of quoted notional over 1,000 fills.** If the maker cannot survive adverse selection, nothing above it matters. |
 | 3    | Taker depth: market orders via `placeAndExecuteMarketBuy` with slippage bounds, position and P&L per window from the indexer's `Account` rows, one-click redeem across every settled cell.               | **25 distinct taker addresses that are not ours, and 250 fills.** Recruited by hand from Grid Arena and Outrive users. |
-| 4    | Second underlying (ETH), the workflow-id pin in `CellSettlementReceiver`, and a mainnet deploy against real USDC with the maker's own capital and published limits.                                     | **$25k of resting depth across the board and $100k of settled notional in the first week.** |
+| 4    | Second underlying (ETH), the workflow-id pin in `PitSettlementReceiver`, and a mainnet deploy against real USDC with the maker's own capital and published limits.                                     | **$25k of resting depth across the board and $100k of settled notional in the first week.** |
 
 **Liquidity beyond us.** We seed both sides from day one, but a market with one
 maker is a market with one point of failure. The plan is not "hope makers come":
@@ -286,7 +286,7 @@ Where this is being submitted, and which bounties it does and does not fit:
 
 | Path                 | What is in it                                                                    |
 | -------------------- | -------------------------------------------------------------------------------- |
-| `packages/contracts` | `CellFactory`, `OutcomeToken`, `CellSettlementReceiver`, and the deploy/roll/seed/fill scripts |
+| `packages/contracts` | `PitFactory`, `OutcomeToken`, `PitSettlementReceiver`, and the deploy/roll/seed/fill scripts |
 | `packages/core`      | the one definition of a cell: window math, the strike ladder, Kuru tick conversions |
 | `packages/indexer`   | Envio HyperIndex — `config.yaml`, `schema.graphql`, handlers, folds, tests        |
 | `packages/cre`       | the Chainlink CRE settlement workflow                                            |

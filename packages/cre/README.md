@@ -1,4 +1,4 @@
-# Cell settlement — Chainlink CRE
+# Pit settlement — Chainlink CRE
 
 A five-minute binary needs two facts that live in different places: **when** the
 window closed, which is onchain, and **what the price was**, which is not. CRE is
@@ -9,15 +9,15 @@ around a cron job — remove it and there is no trustworthy settle.
 ```
 cron (30s)
    │
-   ├─ 1. onchain clock   CellFactory.pendingSettlement(lookback, max)
+   ├─ 1. onchain clock   PitFactory.pendingSettlement(lookback, max)
    │                     → the windows past endTs that nobody has resolved
    │
    ├─ 2. offchain price  GET api.coinbase.com/v2/prices/BTC-USD/spot
    │                     → once per DON node, median across the DON
    │
    └─ 3. one report      abi.encode(priceE8, windowIds[])
-                         DON signs → Forwarder → CellSettlementReceiver
-                                                 → CellFactory.settle(id, price)
+                         DON signs → Forwarder → PitSettlementReceiver
+                                                 → PitFactory.settle(id, price)
 ```
 
 ## The three decisions
@@ -40,14 +40,14 @@ values and a window can settle on the last cent.
 | -------------------------------- | ------------------------------------------------------- |
 | `settle-workflow/main.ts`        | the workflow: cron → read → price → report → write       |
 | `settle-workflow/price.ts`       | decimal-string → 1e8 integer, testable on its own        |
-| `settle-workflow/abi.ts`         | the single CellFactory fragment the workflow calls       |
+| `settle-workflow/abi.ts`         | the single PitFactory fragment the workflow calls       |
 | `settle-workflow/config.*.json`  | schedule, price URL, chain and contract addresses        |
 | `settle-workflow/workflow.yaml`  | staging and production artifact paths                    |
 | `project.yaml`                   | targets and RPCs                                         |
 | `scripts/check.mjs`              | pre-flight: ABI drift, zero addresses, price parsing     |
 | `scripts/sync.mjs`               | copies deployed addresses into the configs               |
 
-The onchain half is `packages/contracts/contracts/CellSettlementReceiver.sol`.
+The onchain half is `packages/contracts/contracts/PitSettlementReceiver.sol`.
 
 ## Running it
 
@@ -76,9 +76,9 @@ and prints the report it would have written.
 
 ## Wiring the Forwarder
 
-`CellFactory.settle` is gated on a single `settler` address. The deploy script
+`PitFactory.settle` is gated on a single `settler` address. The deploy script
 leaves that as the deploy key so a demo is never blocked on CRE, and deploys
-`CellSettlementReceiver` alongside it. Once the workflow is live and you have the
+`PitSettlementReceiver` alongside it. Once the workflow is live and you have the
 Forwarder address for your DON:
 
 ```solidity
@@ -92,7 +92,7 @@ From that point the deploy key cannot settle anything.
 
 The receiver trusts the Forwarder and ignores the report `metadata`, which also
 carries the workflow id, owner and name. Pinning the workflow id in the receiver
-would stop a second workflow owned by the same account from settling Cell's
+would stop a second workflow owned by the same account from settling Pit's
 windows. That is the next hardening step; today the mitigation is that
-`CellFactory.voidWindow` lets anyone rescue a window an hour after it closes, so
+`PitFactory.voidWindow` lets anyone rescue a window an hour after it closes, so
 a misbehaving settler can be removed without stranding anyone's collateral.

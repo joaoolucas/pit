@@ -1,6 +1,6 @@
 # Submission map
 
-What Cell is entering, why, and where the evidence for each claim lives. Checked
+What Pit is entering, why, and where the evidence for each claim lives. Checked
 against `hackathon.monad.xyz/tracks` and the Onchain Finance & Trading judging
 criteria.
 
@@ -11,7 +11,7 @@ criteria.
 > *"the core output is a financial instrument, market, asset primitive, or trading
 > experience — and the primary user is a trader"*
 
-Cell is all three: the instrument (a 5-minute binary), the market structure (two
+Pit is all three: the instrument (a 5-minute binary), the market structure (two
 CLOB books per window that sum to 1), and the trading experience (the grid). The
 track's own core question is *"what new trading experiences become possible when
 settlement is fast enough to stop being the bottleneck?"* — a 5-minute binary
@@ -25,12 +25,12 @@ books, no pending states."*
 
 ## Bounties
 
-| Bounty | Prize | Why Cell qualifies | Evidence |
+| Bounty | Prize | Why Pit qualifies | Evidence |
 | --- | --- | --- | --- |
-| **Bring New Assets and Markets to Kuru** | $5,000 | A new class of tradable market — short-horizon binaries — *plus the infrastructure to make them viable*, which is the part the bounty asks for: the window roller, the two-sided seeder, and the indexer that turns Kuru's logs into a book. | `CellFactory.createWindow` → `Router.deployProxy` ×2; `scripts/roll-windows.ts`; `scripts/seed.ts`; [`docs/LIQUIDITY.md`](LIQUIDITY.md) |
+| **Bring New Assets and Markets to Kuru** | $5,000 | A new class of tradable market — short-horizon binaries — *plus the infrastructure to make them viable*, which is the part the bounty asks for: the window roller, the two-sided seeder, and the indexer that turns Kuru's logs into a book. | `PitFactory.createWindow` → `Router.deployProxy` ×2; `scripts/roll-windows.ts`; `scripts/seed.ts`; [`docs/LIQUIDITY.md`](LIQUIDITY.md) |
 | **Build the Next Consumer Trading App on Kuru** | $5,000 | The grid *is* the trading UI. Every order routes through the Kuru SDK; there is no internal matching and no simulated mode. | `apps/web/lib/kuru.ts` (`GTC.placeLimit`, `OrderCanceler.cancelOrders`), `components/OrderTicket.tsx` |
 | **Best Use of Envio** | $1,000 | The book a cell shows *is* the index. `contractRegister` follows markets that did not exist when the indexer started; the app never polls an RPC for logs. | `packages/indexer/` — `config.yaml`, `schema.graphql`, `src/folds.ts`, 8 tests |
-| **Best workflow with CRE** | $3,000 | CRE is the settlement path, not a comment: onchain clock + offchain price in one attested execution, one signed report per column. The bounty accepts *simulate*. | `packages/cre/settle-workflow/main.ts`, `contracts/CellSettlementReceiver.sol`, 6 receiver tests |
+| **Best workflow with CRE** | $3,000 | CRE is the settlement path, not a comment: onchain clock + offchain price in one attested execution, one signed report per column. The bounty accepts *simulate*. | `packages/cre/settle-workflow/main.ts`, `contracts/PitSettlementReceiver.sol`, 6 receiver tests |
 | **Mera: One Passkey, Many Keys** | $2,500 | *"Most creative non-wallet use of PRF-derived key material."* A PRF salt namespace encrypts private cell notes; the derived key never signs anything. | `apps/web/lib/notes.ts`, [`docs/PASSKEY.md`](PASSKEY.md) |
 
 **$16,500 in bounties**, against a $30,000 track and a $25,000 Grand Champion.
@@ -39,11 +39,11 @@ books, no pending states."*
 
 | Bounty | Prize | Why not |
 | --- | --- | --- |
-| **Best Mera-Powered UX** | $2,500 | Wants Mera as *the entire account layer — no extension, no custody backend*. Cell signs with an ordinary Monad wallet on purpose, so the passkey can never move funds. Taking both Mera bounties would mean arguing the passkey is and is not the wallet. We chose the non-wallet one and said why. |
+| **Best Mera-Powered UX** | $2,500 | Wants Mera as *the entire account layer — no extension, no custody backend*. Pit signs with an ordinary Monad wallet on purpose, so the passkey can never move funds. Taking both Mera bounties would mean arguing the passkey is and is not the wallet. We chose the non-wallet one and said why. |
 | **Agora: Mobile Trading / Cross-Border** | $10,000 each | Both require a mobile app; the trading one also requires Perpl and an AUSD balance. A different product. |
-| **Perpl: API bot / Analytics** | $5,000 / $3,000 | Perpl is a perps venue. Cell's whole claim is a spot CLOB of binaries. |
-| **Dynamic / Privy** | $5,000 each | Wallet-auth SDKs. Cell's account story is one sentence — bring a Monad wallet — and Privy explicitly disqualifies login-only integrations. |
-| **Cleanverse / Hunyuan / KIMI / Qwen** | — | Identity gating and LLM credits. Nothing in Cell needs a model. |
+| **Perpl: API bot / Analytics** | $5,000 / $3,000 | Perpl is a perps venue. Pit's whole claim is a spot CLOB of binaries. |
+| **Dynamic / Privy** | $5,000 each | Wallet-auth SDKs. Pit's account story is one sentence — bring a Monad wallet — and Privy explicitly disqualifies login-only integrations. |
+| **Cleanverse / Hunyuan / KIMI / Qwen** | — | Identity gating and LLM credits. Nothing in Pit needs a model. |
 | **Alchemy** | $1,000 credits | Swapping a public RPC for an Alchemy RPC is not a *meaningful* integration, which is the stated bar. |
 
 ## Worth considering, not yet built

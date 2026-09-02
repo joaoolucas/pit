@@ -1,5 +1,5 @@
 /**
- * CellFactory: issuance, settlement, and the dynamic registration that makes the
+ * PitFactory: issuance, settlement, and the dynamic registration that makes the
  * rest of the indexer work.
  *
  * A window's two Kuru markets do not exist when the indexer starts. The
@@ -20,7 +20,7 @@ import {
 } from "../folds.ts";
 import { OUTCOME } from "../shared.ts";
 
-indexer.contractRegister({ contract: "CellFactory", event: "WindowCreated" }, ({ event, context }) => {
+indexer.contractRegister({ contract: "PitFactory", event: "WindowCreated" }, ({ event, context }) => {
   context.chain.KuruOrderBook.add(event.params.yesMarket);
   context.chain.KuruOrderBook.add(event.params.noMarket);
   context.log.info(
@@ -28,7 +28,7 @@ indexer.contractRegister({ contract: "CellFactory", event: "WindowCreated" }, ({
   );
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "WindowCreated" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "WindowCreated" }, async ({ event, context }) => {
   await applyWindowCreated(context as unknown as Store, {
     windowId: event.params.windowId,
     underlying: event.params.underlying,
@@ -43,19 +43,19 @@ indexer.onEvent({ contract: "CellFactory", event: "WindowCreated" }, async ({ ev
   });
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "SetMinted" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "SetMinted" }, async ({ event, context }) => {
   await applyCollateralDelta(context as unknown as Store, event.params.windowId, event.params.amount);
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "SetBurned" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "SetBurned" }, async ({ event, context }) => {
   await applyCollateralDelta(context as unknown as Store, event.params.windowId, -event.params.amount);
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "Redeemed" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "Redeemed" }, async ({ event, context }) => {
   await applyCollateralDelta(context as unknown as Store, event.params.windowId, -event.params.payout);
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "WindowSettled" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "WindowSettled" }, async ({ event, context }) => {
   await applyWindowResolved(context as unknown as Store, {
     windowId: event.params.windowId,
     outcome: Number(event.params.outcome),
@@ -65,7 +65,7 @@ indexer.onEvent({ contract: "CellFactory", event: "WindowSettled" }, async ({ ev
   });
 });
 
-indexer.onEvent({ contract: "CellFactory", event: "WindowVoided" }, async ({ event, context }) => {
+indexer.onEvent({ contract: "PitFactory", event: "WindowVoided" }, async ({ event, context }) => {
   await applyWindowResolved(context as unknown as Store, {
     windowId: event.params.windowId,
     outcome: OUTCOME.Void,

@@ -6,7 +6,7 @@ derive.**
 
 ```
                        ┌──────────────────────────────────────────────┐
-  roll-windows.ts ────►│  CellFactory                                 │
+  roll-windows.ts ────►│  PitFactory                                 │
   (cron, 1 min)        │                                              │
                        │  createWindow(underlying, start, end, strike)│
                        │    ├─ new OutcomeToken cYES   (ERC-20, 6dp)  │
@@ -42,7 +42,7 @@ derive.**
   Chainlink CRE (cron, 30s)
      pendingSettlement()  ──── onchain clock
      GET spot             ──── offchain price, median across the DON
-     report(price, ids[]) ───► Forwarder ──► CellSettlementReceiver ──► settle()
+     report(price, ids[]) ───► Forwarder ──► PitSettlementReceiver ──► settle()
 ```
 
 ## The data path, and what is not in it
@@ -78,14 +78,14 @@ collateral unit with no scaling anywhere. Kuru's `sizePrecision` is 1e6 too, so 
 1e6, comfortably inside the `uint32` Kuru stores it in.
 
 `packages/core/src/kuru.ts` holds the conversions and is kept in step with
-`CellFactory.marketConfig` by construction: both are constants in the same repo,
+`PitFactory.marketConfig` by construction: both are constants in the same repo,
 and `scripts/export-abi.ts` regenerates the ABIs the app uses from the compiled
 artifacts so they cannot drift from what was deployed.
 
 ## Trust, and the escape hatch
 
 `settle` is gated on one address. In production that is
-`CellSettlementReceiver`, which only accepts calls from the Chainlink Forwarder.
+`PitSettlementReceiver`, which only accepts calls from the Chainlink Forwarder.
 The deploy script leaves the settler on the deploy key until a Forwarder address
 exists, so a demo is never blocked on CRE, and flipping it is two calls.
 
@@ -96,7 +96,7 @@ a stuck oracle can do is cost everyone the spread.
 
 What is *not* protected yet: the receiver trusts the Forwarder and ignores the
 report metadata, which also carries the workflow id. Pinning that would stop a
-second workflow owned by the same account from settling Cell's windows. It is on
+second workflow owned by the same account from settling Pit's windows. It is on
 the roadmap and called out in `packages/cre/README.md`.
 
 ## Reorgs
@@ -127,8 +127,8 @@ bug farm.
 
 | What                                | Where                                              |
 | ----------------------------------- | -------------------------------------------------- |
-| issuance, settlement, void, redeem  | `packages/contracts/test/CellFactory.test.ts`      |
-| the CRE receiver and batch settle   | `packages/contracts/test/CellSettlementReceiver.test.ts` |
+| issuance, settlement, void, redeem  | `packages/contracts/test/PitFactory.test.ts`      |
+| the CRE receiver and batch settle   | `packages/contracts/test/PitSettlementReceiver.test.ts` |
 | the fold arithmetic                 | `packages/indexer/test/folds.test.ts`              |
 | config vs. the real ABIs            | `packages/indexer/scripts/validate.mjs`            |
 | workflow ABI drift + price parsing  | `packages/cre/scripts/check.mjs`                   |

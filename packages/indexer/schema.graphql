@@ -1,12 +1,12 @@
 """
-The book a Cell shows is this schema.
+The book Pit shows is this schema.
 
 Nothing in the app polls an RPC for logs. Kuru emits OrderCreated, Trade and
 OrdersCanceled; HyperIndex folds them into BookLevel, CellState and WindowCvd,
 and the UI reads those. That is the whole data path.
 """
 
-"A 5-minute YES/NO window issued by CellFactory."
+"A 5-minute YES/NO window issued by PitFactory."
 type Window {
   "The onchain window id, as a string."
   id: ID!
@@ -40,7 +40,7 @@ type Window {
 """
 One Kuru orderbook: the YES leg or the NO leg of a window.
 
-Registered dynamically the moment CellFactory emits WindowCreated, so the
+Registered dynamically the moment PitFactory emits WindowCreated, so the
 indexer follows markets that did not exist when it started.
 """
 type Market {

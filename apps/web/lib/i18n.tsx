@@ -138,7 +138,7 @@ const dictionary = {
     "status.live": "ao vivo",
     "status.loading": "Carregando o tabuleiro",
     "status.notConfigured":
-      "Defina NEXT_PUBLIC_CELL_FACTORY e NEXT_PUBLIC_INDEXER_URL para conectar a um deploy.",
+      "Defina NEXT_PUBLIC_PIT_FACTORY e NEXT_PUBLIC_INDEXER_URL para conectar a um deploy.",
   },
 
   en: {
@@ -258,7 +258,7 @@ const dictionary = {
     "status.live": "live",
     "status.loading": "Loading the board",
     "status.notConfigured":
-      "Set NEXT_PUBLIC_CELL_FACTORY and NEXT_PUBLIC_INDEXER_URL to point at a deployment.",
+      "Set NEXT_PUBLIC_PIT_FACTORY and NEXT_PUBLIC_INDEXER_URL to point at a deployment.",
   },
 } as const;
 

@@ -1,4 +1,4 @@
-import type { Outcome, Side } from "@cell/core";
+import type { Outcome, Side } from "@pit/core";
 import type { RawCellState } from "@/lib/indexer";
 
 /**

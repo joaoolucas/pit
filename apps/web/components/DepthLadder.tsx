@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/lib/i18n";
 import type { RawLevel } from "@/lib/indexer";
-import { formatCents, sizeToContracts, tickToCents } from "@cell/core";
+import { formatCents, sizeToContracts, tickToCents } from "@pit/core";
 
 type Props = {
   bids: RawLevel[];

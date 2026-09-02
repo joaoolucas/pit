@@ -14,16 +14,16 @@ import { passkeyRpId } from "./config";
  * What this is NOT: a wallet. The PRF output derived here never becomes a
  * signing key, never touches a transaction, and lives in a different file from
  * everything that does (lib/wallet.ts). Mera can derive EVM accounts from a
- * passkey; Cell deliberately does not use it that way. Trading is signed by an
+ * passkey; Pit deliberately does not use it that way. Trading is signed by an
  * ordinary Monad wallet.
  *
  * What this IS: one PRF salt namespace, used to derive one AES-256-GCM key that
  * encrypts a trader's notes and call drafts on a cell. The ciphertext is stored
- * on Cell's server; the key is never sent anywhere and never persisted. The same
+ * on Pit's server; the key is never sent anywhere and never persisted. The same
  * passkey on a second device derives the same key from the same salt and reads
  * the same notes, which is the whole point.
  *
- *   salt      SHA-256("cell.prf.v1|<rpId>|notes")     — the namespace
+ *   salt      SHA-256("pit.prf.v1|<rpId>|notes")     — the namespace
  *   PRF       WebAuthn hmac-secret over that salt      — 32 bytes, per credential
  *   key       HKDF-SHA-256(PRF, info "cell.v1.notes.aead")
  *   auth tag  HKDF-SHA-256(PRF, info "cell.v1.notes.auth")  — proves possession
@@ -32,11 +32,11 @@ import { passkeyRpId } from "./config";
  * The salt is a namespace, not a secret: it is derived from a constant and the
  * relying-party id, so it is identical on every device and reproducible from
  * this source. Its job is domain separation — a second namespace (say
- * "cell.prf.v1|<rpId>|drafts") yields a completely unrelated key from the same
+ * "pit.prf.v1|<rpId>|drafts") yields a completely unrelated key from the same
  * passkey, so notes and drafts cannot decrypt each other.
  */
 
-const NAMESPACE_PREFIX = "cell.prf.v1";
+const NAMESPACE_PREFIX = "pit.prf.v1";
 const AEAD_INFO = "cell.v1.notes.aead";
 const AUTH_INFO = "cell.v1.notes.auth";
 const HKDF_SALT = "cell.notes.hkdf.v1";
@@ -137,7 +137,7 @@ export function passkeysSupported(): boolean {
 export async function enroll(label: string): Promise<NotesSession> {
   const prfSalt = await namespaceSalt("notes");
   const result = await createPasskeyWithPrfOutput({
-    rp: { id: passkeyRpId, name: "Cell" },
+    rp: { id: passkeyRpId, name: "Pit" },
     user: { name: label, displayName: label },
     prfSalt,
   });

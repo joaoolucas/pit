@@ -17,7 +17,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 const CORE_ABI_DIR = path.join(ROOT, "packages/core/src/abi");
 const INDEXER_ABI_DIR = path.join(ROOT, "packages/indexer/abis");
 
-const CONTRACTS = ["CellFactory", "OutcomeToken", "MockERC20", "MockKuruOrderBook", "MockKuruRouter"];
+const CONTRACTS = ["PitFactory", "OutcomeToken", "MockERC20", "MockKuruOrderBook", "MockKuruRouter"];
 
 async function main() {
   fs.mkdirSync(CORE_ABI_DIR, { recursive: true });

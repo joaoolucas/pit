@@ -1,9 +1,9 @@
 {
-  "name": "@cell/contracts",
+  "name": "@pit/contracts",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Cell issuance + settlement contracts, and the scripts that list every window on Kuru.",
+  "description": "Pit issuance + settlement contracts, and the scripts that list every window on Kuru.",
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",

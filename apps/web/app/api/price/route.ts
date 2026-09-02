@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       pair,
       amount,
-      // The same 1e8 scale CellFactory stores strikes in, so the UI never has to
+      // The same 1e8 scale PitFactory stores strikes in, so the UI never has to
       // guess whether a number has been scaled yet.
       priceE8: (BigInt(Math.round(Number(amount) * 1e8))).toString(),
       at: Date.now(),

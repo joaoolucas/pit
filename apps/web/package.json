@@ -1,5 +1,5 @@
 {
-  "name": "@cell/web",
+  "name": "@pit/web",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",
-    "@cell/core": "*",
+    "@pit/core": "*",
     "@kuru-labs/kuru-sdk": "^0.0.95",
     "ethers": "^5.7.2",
     "next": "^15.1.6",

@@ -156,7 +156,7 @@ export function e8ToUsd(e8: bigint): number {
   return Number(e8) / 1e8;
 }
 
-/** Mirrors `CellFactory.windowKey` so scripts and UI can address a cell offline. */
+/** Mirrors `PitFactory.windowKey` so scripts and UI can address a cell offline. */
 export type CellCoords = {
   underlying: Underlying;
   endTs: number;

@@ -88,7 +88,7 @@ print 0.99 and nobody trades them; tighter and every row is the same bet.
 
 ## Market parameters
 
-Set once in `CellFactory`'s constructor and applied to every market it lists:
+Set once in `PitFactory`'s constructor and applied to every market it lists:
 
 | Parameter        | Value  | Why                                                          |
 | ---------------- | ------ | ------------------------------------------------------------ |
@@ -98,10 +98,10 @@ Set once in `CellFactory`'s constructor and applied to every market it lists:
 | `minSize`        | 1e6    | one contract: costs at most 1, pays at most 1                 |
 | `takerFeeBps`    | 0      | the demo is about the book, not the rake                      |
 | `makerFeeBps`    | 0      | same                                                          |
-| `kuruAmmSpread`  | 500    | the widest allowed; Cell never funds the Kuru AMM vault       |
+| `kuruAmmSpread`  | 500    | the widest allowed; Pit never funds the Kuru AMM vault       |
 
-`deployProxy` always creates a vault alongside the book. Cell never funds it, so
-it holds no inventory and quotes nothing — every price on a Cell book came from a
+`deployProxy` always creates a vault alongside the book. Pit never funds it, so
+it holds no inventory and quotes nothing — every price on a Pit book came from a
 human or a script that anyone could run.
 
 ## What is not solved yet

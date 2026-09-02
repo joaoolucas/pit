@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
   // production chunks and 500s on every route. Giving them separate homes makes
   // that impossible rather than merely documented.
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
-  // @cell/core is TypeScript source, shared with the deploy scripts and the
+  // @pit/core is TypeScript source, shared with the deploy scripts and the
   // indexer so a cell is defined once. Next has to compile it rather than
   // expect a build step.
-  transpilePackages: ["@cell/core"],
+  transpilePackages: ["@pit/core"],
 };
 
 export default nextConfig;

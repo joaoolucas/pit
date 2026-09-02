@@ -14,7 +14,7 @@ import {
   tileInk,
   WINDOW_SECONDS,
   type TileInk,
-} from "@cell/core";
+} from "@pit/core";
 import type { BoardCell } from "./types";
 
 /** Rows never get thinner than this, however many strikes are on the board. */
@@ -60,7 +60,7 @@ type Props = {
  *
  * Each tile carries two facts in two channels: the number says what the book
  * charges, and the paint says how much is resting behind it. Cells nobody quotes
- * stay hollow. See `tileInk` in @cell/core.
+ * stay hollow. See `tileInk` in @pit/core.
  */
 export function Board({
   columns,

@@ -26,10 +26,10 @@
       "@/*": [
         "./*"
       ],
-      "@cell/core": [
+      "@pit/core": [
         "../../packages/core/src/index.ts"
       ],
-      "@cell/core/*": [
+      "@pit/core/*": [
         "../../packages/core/src/*"
       ]
     }

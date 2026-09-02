@@ -1,12 +1,12 @@
 /**
- * Kuru price and size conversions for Cell markets.
+ * Kuru price and size conversions for Pit markets.
  *
  * Kuru stores a price as `uint32` in `pricePrecision` units and a size as
- * `uint96` in `sizePrecision` units. Every Cell market is listed with the same
+ * `uint96` in `sizePrecision` units. Every Pit market is listed with the same
  * parameters, because every outcome leg trades in the same [0, 1] range — so
  * these conversions are constants rather than per-market lookups.
  *
- * Kept in sync with `CellFactory.marketConfig` (see constructor).
+ * Kept in sync with `PitFactory.marketConfig` (see constructor).
  */
 
 export const SIZE_PRECISION = 1_000_000n;
@@ -130,7 +130,7 @@ export function payoff(price: number, size: number, isBuy: boolean): Payoff | nu
 // Every venue a trader already uses — Kalshi, Polymarket — prices a binary in
 // whole cents and sizes an order in dollars. "62¢" and "$25" are the units; a
 // contract count is an implementation detail the interface should compute, not
-// ask for. Cell speaks the same way at the edges and keeps ticks and sizes
+// ask for. Pit speaks the same way at the edges and keeps ticks and sizes
 // internally, where the contracts need them.
 // ---------------------------------------------------------------------------
 

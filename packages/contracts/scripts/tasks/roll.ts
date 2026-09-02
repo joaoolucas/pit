@@ -44,7 +44,7 @@ export async function rollWindows(options: RollOptions = {}): Promise<RollResult
   const stepBps = options.stepBps ?? Number(process.env.STEP_BPS ?? DEFAULT_LADDER_STEP_BPS);
 
   const deployment = readDeployment();
-  const factory = await ethers.getContractAt("CellFactory", deployment.cellFactory);
+  const factory = await ethers.getContractAt("PitFactory", deployment.pitFactory);
   const [signer] = await ethers.getSigners();
 
   const spotE8 = await fetchSpotE8(label);

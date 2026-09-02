@@ -1,7 +1,7 @@
 /**
  * Points config.yaml at the latest deployment.
  *
- * The CellFactory address and the chain id live in
+ * The PitFactory address and the chain id live in
  * packages/contracts/deployments/<network>.json, written by the deploy script.
  * Copying them by hand is exactly the kind of thing that silently indexes the
  * wrong contract for an hour, so this does it.
@@ -29,13 +29,13 @@ const original = fs.readFileSync(configFile, "utf8");
 const updated = original
   .replace(/(chains:\s*\n\s*- id: )\d+/, `$1${deployment.chainId}`)
   .replace(/(start_block: )\d+/, `$1${deployment.startBlock}`)
-  .replace(/(- name: CellFactory\n\s*address: ")0x[0-9a-fA-F]{40}(")/, `$1${deployment.cellFactory}$2`);
+  .replace(/(- name: PitFactory\n\s*address: ")0x[0-9a-fA-F]{40}(")/, `$1${deployment.pitFactory}$2`);
 
 if (updated === original) {
   console.log("config.yaml already matches the deployment.");
 } else {
   fs.writeFileSync(configFile, updated);
-  console.log(`config.yaml -> chain ${deployment.chainId}, CellFactory ${deployment.cellFactory}, from block ${deployment.startBlock}`);
+  console.log(`config.yaml -> chain ${deployment.chainId}, PitFactory ${deployment.pitFactory}, from block ${deployment.startBlock}`);
 }
 
 if (network === "localhost") {

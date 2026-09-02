@@ -3,16 +3,16 @@
 import { BigNumber, ethers } from "ethers";
 import * as KuruSdk from "@kuru-labs/kuru-sdk";
 
-import { cellFactoryAddress } from "./config";
-import { cellFactoryAbi } from "@cell/core/abi/cellFactory";
-import { erc20Abi } from "@cell/core/abi/erc20";
+import { pitFactoryAddress } from "./config";
+import { pitFactoryAbi } from "@pit/core/abi/pitFactory";
+import { erc20Abi } from "@pit/core/abi/erc20";
 
 /**
  * Every order in this app goes through Kuru.
  *
  * There is no internal matching, no off-chain order store, and no "simulated"
  * mode. `placeLimit` below is the Kuru SDK's own `GTC.placeLimit` against the
- * market that `CellFactory.createWindow` listed. If Kuru is down, Cell is down,
+ * market that `PitFactory.createWindow` listed. If Kuru is down, Pit is down,
  * which is the correct coupling for something claiming to be a CLOB front end.
  *
  * Sizes and prices cross this boundary as human strings — "0.42", "100" — because
@@ -84,11 +84,11 @@ export async function readL2Book(provider: ethers.providers.Provider, market: st
 }
 
 // ---------------------------------------------------------------------------
-// CellFactory: issuance and redemption
+// PitFactory: issuance and redemption
 // ---------------------------------------------------------------------------
 
-export function cellFactory(signerOrProvider: ethers.Signer | ethers.providers.Provider) {
-  return new ethers.Contract(cellFactoryAddress, cellFactoryAbi as never, signerOrProvider);
+export function pitFactory(signerOrProvider: ethers.Signer | ethers.providers.Provider) {
+  return new ethers.Contract(pitFactoryAddress, pitFactoryAbi as never, signerOrProvider);
 }
 
 /**
@@ -99,23 +99,23 @@ export function cellFactory(signerOrProvider: ethers.Signer | ethers.providers.P
  * than hiding: it is the clearest statement that the two legs sum to one.
  */
 export async function mintSet(signer: ethers.Signer, windowId: number | string, amount: BigNumber) {
-  await ensureAllowance(signer, await collateralOf(signer), cellFactoryAddress, amount);
-  const tx = await cellFactory(signer).mintSet(windowId, amount);
+  await ensureAllowance(signer, await collateralOf(signer), pitFactoryAddress, amount);
+  const tx = await pitFactory(signer).mintSet(windowId, amount);
   return tx.wait();
 }
 
 export async function burnSet(signer: ethers.Signer, windowId: number | string, amount: BigNumber) {
-  const tx = await cellFactory(signer).burnSet(windowId, amount);
+  const tx = await pitFactory(signer).burnSet(windowId, amount);
   return tx.wait();
 }
 
 export async function redeem(signer: ethers.Signer, windowId: number | string) {
-  const tx = await cellFactory(signer).redeem(windowId);
+  const tx = await pitFactory(signer).redeem(windowId);
   return tx.wait();
 }
 
 async function collateralOf(signer: ethers.Signer): Promise<string> {
-  return cellFactory(signer).collateralToken();
+  return pitFactory(signer).collateralToken();
 }
 
 // ---------------------------------------------------------------------------

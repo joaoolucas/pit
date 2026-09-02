@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-import type { CellFactory, MockERC20, MockKuruOrderBook, MockKuruRouter } from "../typechain-types";
+import type { PitFactory, MockERC20, MockKuruOrderBook, MockKuruRouter } from "../typechain-types";
 
 const BTC_USD = ethers.keccak256(ethers.toUtf8Bytes("BTC-USD"));
 const E8 = 100_000_000n; // price scale
@@ -17,7 +17,7 @@ const contracts = (n: number | bigint) => BigInt(n) * SIZE_PRECISION;
 /** Probability as a Kuru price tick: 0.42 -> 420000. */
 const prob = (p: number) => BigInt(Math.round(p * Number(PRICE_PRECISION)));
 
-describe("CellFactory", () => {
+describe("PitFactory", () => {
   let owner: HardhatEthersSigner;
   let settler: HardhatEthersSigner;
   let maker: HardhatEthersSigner;
@@ -26,7 +26,7 @@ describe("CellFactory", () => {
 
   let usdc: MockERC20;
   let router: MockKuruRouter;
-  let factory: CellFactory;
+  let factory: PitFactory;
 
   let startTs: number;
   let endTs: number;
@@ -38,7 +38,7 @@ describe("CellFactory", () => {
     usdc = await (await ethers.getContractFactory("MockERC20")).deploy("USD Coin", "USDC", 6);
     router = await (await ethers.getContractFactory("MockKuruRouter")).deploy();
     factory = await (
-      await ethers.getContractFactory("CellFactory")
+      await ethers.getContractFactory("PitFactory")
     ).deploy(owner.address, await usdc.getAddress(), await router.getAddress(), settler.address, owner.address);
 
     for (const who of [maker, taker, stranger]) {
@@ -243,12 +243,12 @@ describe("CellFactory", () => {
 const anyAddress = (value: string) => ethers.isAddress(value) && value !== ethers.ZeroAddress;
 const anyUint = (value: bigint) => value > 0n;
 
-describe("CellFactory.pendingSettlement", () => {
+describe("PitFactory.pendingSettlement", () => {
   // The Chainlink CRE workflow's only read. It has to be exactly right, because a
   // window it fails to report is a window that sits unsettled until someone voids it.
   let owner: HardhatEthersSigner;
   let settler: HardhatEthersSigner;
-  let factory: CellFactory;
+  let factory: PitFactory;
   let endTs: number;
 
   beforeEach(async () => {
@@ -256,7 +256,7 @@ describe("CellFactory.pendingSettlement", () => {
     const usdc = await (await ethers.getContractFactory("MockERC20")).deploy("USD Coin", "USDC", 6);
     const router = await (await ethers.getContractFactory("MockKuruRouter")).deploy();
     factory = await (
-      await ethers.getContractFactory("CellFactory")
+      await ethers.getContractFactory("PitFactory")
     ).deploy(owner.address, await usdc.getAddress(), await router.getAddress(), settler.address, owner.address);
 
     const startTs = (await time.latest()) + 10;

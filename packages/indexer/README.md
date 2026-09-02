@@ -1,9 +1,9 @@
-# Cell indexer — Envio HyperIndex
+# Pit indexer — Envio HyperIndex
 
 The book a cell shows is this indexer. Nothing in the app polls an RPC for logs.
 
 ```
-CellFactory.WindowCreated ──► contractRegister ──► both Kuru markets followed
+PitFactory.WindowCreated ──► contractRegister ──► both Kuru markets followed
                           └─► Window, Market, CellState rows
 
 KuruOrderBook.OrderCreated ─┐
@@ -12,7 +12,7 @@ KuruOrderBook.OrdersCanceled┘
 ```
 
 The interesting part is `contractRegister`. A window's two Kuru markets are
-deployed by `CellFactory.createWindow` at runtime, so their addresses cannot be
+deployed by `PitFactory.createWindow` at runtime, so their addresses cannot be
 in `config.yaml`. `src/handlers/factory.ts` adds both the moment `WindowCreated`
 is emitted, and `src/handlers/orderbook.ts` starts receiving their logs in the
 same block. A cell that opens while the indexer is running is indexed from its
@@ -27,7 +27,7 @@ first order, with no restart and no address list to maintain.
 | `CellState`   | one denormalised row per cell so the grid paints ~50 cells in one query |
 | `WindowCvd`   | signed taker flow in 15-second buckets                                  |
 | `Fill`        | the tape                                                               |
-| `Window`      | issuance, open interest and settlement, from CellFactory's own events   |
+| `Window`      | issuance, open interest and settlement, from PitFactory's own events   |
 
 `CellState.cvd` is the running total and `WindowCvd.delta` is the per-bucket
 change, so the tape chart needs one query and no client-side accumulation.
@@ -36,7 +36,7 @@ change, so the tape chart needs one query and no client-side accumulation.
 
 ```bash
 npm install
-npm run sync            # copy CellFactory address + start block from the deployment
+npm run sync            # copy PitFactory address + start block from the deployment
 npm run validate        # config.yaml vs. the ABIs, no container needed
 npm run codegen
 npm run dev             # Postgres + Hasura on http://localhost:8080/v1/graphql
@@ -78,7 +78,7 @@ Then set `NEXT_PUBLIC_INDEXER_URL` to the deployment's GraphQL endpoint.
 npm --prefix ../contracts run export:abi
 ```
 
-It writes the compiled CellFactory ABI and copies Kuru's `OrderBook.json`
+It writes the compiled PitFactory ABI and copies Kuru's `OrderBook.json`
 straight out of `@kuru-labs/kuru-sdk` when that package is installed, so the
 event signatures here are the ones Kuru actually emits rather than a
 transcription of the docs.

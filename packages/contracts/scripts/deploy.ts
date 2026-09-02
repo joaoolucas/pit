@@ -1,11 +1,11 @@
 /**
- * Deploys Cell.
+ * Deploys Pit.
  *
- *   - collateral: reuses CELL_COLLATERAL if set, otherwise deploys a 6-decimal
- *     faucet token (testnet only — on mainnet point CELL_COLLATERAL at USDC).
+ *   - collateral: reuses PIT_COLLATERAL if set, otherwise deploys a 6-decimal
+ *     faucet token (testnet only — on mainnet point PIT_COLLATERAL at USDC).
  *   - Kuru router: KURU_ROUTER, or the address from packages/core/src/chain.ts,
  *     or a local MockKuruRouter when there is no Kuru on this chain.
- *   - CellFactory, wired to a settler (the CRE workflow's sender) and an
+ *   - PitFactory, wired to a settler (the CRE workflow's sender) and an
  *     operator (the window roller).
  *
  * Writes deployments/<network>.json and prints the .env lines to paste.
@@ -25,10 +25,10 @@ async function main() {
   if (balance === 0n) throw new Error("Deployer has no gas. Fund it at https://faucet.monad.xyz");
 
   // --- collateral --------------------------------------------------------
-  let collateral = process.env.CELL_COLLATERAL?.trim();
+  let collateral = process.env.PIT_COLLATERAL?.trim();
   if (!collateral) {
-    console.log("CELL_COLLATERAL unset — deploying a faucet USDC for this deployment.");
-    const token = await (await ethers.getContractFactory("MockERC20")).deploy("Cell USD", "cUSD", 6);
+    console.log("PIT_COLLATERAL unset — deploying a faucet USDC for this deployment.");
+    const token = await (await ethers.getContractFactory("MockERC20")).deploy("Pit USD", "cUSD", 6);
     await token.waitForDeployment();
     collateral = await token.getAddress();
     console.log(`  cUSD         ${collateral}`);
@@ -47,17 +47,17 @@ async function main() {
   console.log(`  Kuru Router  ${kuruRouter}`);
 
   // --- factory -----------------------------------------------------------
-  const settler = process.env.CELL_SETTLER?.trim() || deployer.address;
-  const operator = process.env.CELL_OPERATOR?.trim() || deployer.address;
+  const settler = process.env.PIT_SETTLER?.trim() || deployer.address;
+  const operator = process.env.PIT_OPERATOR?.trim() || deployer.address;
 
   const factory = await (
-    await ethers.getContractFactory("CellFactory")
+    await ethers.getContractFactory("PitFactory")
   ).deploy(deployer.address, collateral, kuruRouter, settler, operator);
   await factory.waitForDeployment();
-  const cellFactory = await factory.getAddress();
+  const pitFactory = await factory.getAddress();
   const startBlock = (await ethers.provider.getBlockNumber()) - 1;
 
-  console.log(`  CellFactory  ${cellFactory}`);
+  console.log(`  PitFactory  ${pitFactory}`);
   console.log(`  settler      ${settler}   (set to the CRE Forwarder before going live)`);
   console.log(`  operator     ${operator}`);
 
@@ -68,8 +68,8 @@ async function main() {
   // `npm run settle:manual` still works and a demo is never blocked on CRE.
   const creForwarder = process.env.CRE_FORWARDER?.trim();
   const receiverContract = await (
-    await ethers.getContractFactory("CellSettlementReceiver")
-  ).deploy(deployer.address, cellFactory, creForwarder ?? deployer.address);
+    await ethers.getContractFactory("PitSettlementReceiver")
+  ).deploy(deployer.address, pitFactory, creForwarder ?? deployer.address);
   await receiverContract.waitForDeployment();
   const receiver = await receiverContract.getAddress();
   console.log(`  Receiver     ${receiver}`);
@@ -91,7 +91,7 @@ async function main() {
     collateralSymbol: symbol,
     collateralDecimals: decimals,
     kuruRouter,
-    cellFactory,
+    pitFactory,
     settlementReceiver: receiver,
     creForwarder: creForwarder ?? null,
     settler: creForwarder ? receiver : settler,
@@ -102,11 +102,11 @@ async function main() {
   console.log(`\nWrote ${file}`);
 
   console.log("\nPaste into .env:");
-  console.log(`CELL_FACTORY=${cellFactory}`);
-  console.log(`CELL_COLLATERAL=${collateral}`);
-  console.log(`CELL_SETTLEMENT_RECEIVER=${receiver}`);
+  console.log(`PIT_FACTORY=${pitFactory}`);
+  console.log(`PIT_COLLATERAL=${collateral}`);
+  console.log(`PIT_SETTLEMENT_RECEIVER=${receiver}`);
   console.log(`ENVIO_START_BLOCK=${deployment.startBlock}`);
-  console.log(`NEXT_PUBLIC_CELL_FACTORY=${cellFactory}`);
+  console.log(`NEXT_PUBLIC_PIT_FACTORY=${pitFactory}`);
   console.log(`NEXT_PUBLIC_COLLATERAL=${collateral}`);
   console.log("\nNext: npm run windows:roll  then  npm run seed");
 }

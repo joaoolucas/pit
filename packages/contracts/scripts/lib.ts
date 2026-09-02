@@ -13,7 +13,7 @@ export type Deployment = {
   collateralSymbol: string;
   collateralDecimals: number;
   kuruRouter: string;
-  cellFactory: string;
+  pitFactory: string;
   settlementReceiver: string;
   creForwarder: string | null;
   settler: string;

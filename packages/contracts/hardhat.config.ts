@@ -19,7 +19,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      // Cell windows are timestamp-driven; tests move the clock explicitly.
+      // Pit windows are timestamp-driven; tests move the clock explicitly.
       allowBlocksWithSameTimestamp: true,
     },
     localhost: {

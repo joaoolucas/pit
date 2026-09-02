@@ -70,7 +70,7 @@ async function tick(pass: number) {
 }
 
 async function main() {
-  console.log(`Cell tick on ${network.name}${WATCH ? ` every ${INTERVAL_MS / 1000}s` : ""}\n`);
+  console.log(`Pit tick on ${network.name}${WATCH ? ` every ${INTERVAL_MS / 1000}s` : ""}\n`);
 
   let pass = 1;
   await tick(pass);

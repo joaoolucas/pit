@@ -6,7 +6,7 @@
     {
       "chainName": "monad-testnet",
       "isTestnet": true,
-      "cellFactoryAddress": "0x0000000000000000000000000000000000000000",
+      "pitFactoryAddress": "0x0000000000000000000000000000000000000000",
       "receiverAddress": "0x0000000000000000000000000000000000000000",
       "gasLimit": "1500000",
       "lookbackWindows": 60,

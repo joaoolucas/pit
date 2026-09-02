@@ -35,7 +35,7 @@ export async function settleClosed(options: SettleOptions = {}): Promise<SettleR
 
   const deployment = readDeployment();
   const [signer] = await ethers.getSigners();
-  const factory = await ethers.getContractAt("CellFactory", deployment.cellFactory);
+  const factory = await ethers.getContractAt("PitFactory", deployment.pitFactory);
 
   const settler = await factory.settler();
   if (settler.toLowerCase() !== signer.address.toLowerCase()) {

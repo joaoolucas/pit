@@ -1,4 +1,4 @@
-/** Networks Cell knows about, and the Kuru deployment on each. */
+/** Networks Pit knows about, and the Kuru deployment on each. */
 
 export type ChainConfig = {
   id: number;

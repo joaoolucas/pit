@@ -1,13 +1,13 @@
 staging-settings:
   user-workflow:
-    workflow-name: "cell-settle-staging"
+    workflow-name: "pit-settle-staging"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.staging.json"
     secrets-path: ""
 production-settings:
   user-workflow:
-    workflow-name: "cell-settle-production"
+    workflow-name: "pit-settle-production"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.production.json"

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IKuruRouter} from "../interfaces/IKuruRouter.sol";
 import {MockKuruOrderBook} from "./MockKuruOrderBook.sol";
 
-/// @notice Local stand-in for the Kuru Router, so CellFactory can be deployed and
+/// @notice Local stand-in for the Kuru Router, so PitFactory can be deployed and
 ///         exercised on a bare Hardhat node. Emits the same MarketRegistered shape
 ///         as the real Router (verified against kuru-labs/kuru-sdk v0.0.95).
 contract MockKuruRouter is IKuruRouter {

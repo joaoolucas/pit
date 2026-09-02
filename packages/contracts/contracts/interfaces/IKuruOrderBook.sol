@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @notice Subset of a Kuru OrderBook proxy. Cell never calls this from a contract —
+/// @notice Subset of a Kuru OrderBook proxy. Pit never calls this from a contract —
 ///         it is declared so the deployment scripts and the indexer share one source
 ///         of truth for the CLOB surface a cell exposes.
 /// @dev Verified against `kuru-labs/kuru-sdk v0.0.95` (`abi/OrderBook.json`).

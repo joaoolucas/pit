@@ -10,7 +10,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {OutcomeToken} from "./OutcomeToken.sol";
 import {IKuruRouter} from "./interfaces/IKuruRouter.sol";
 
-/// @title CellFactory
+/// @title PitFactory
 /// @notice Issues one YES/NO pair per short-horizon window, lists both legs as spot
 ///         markets on Kuru's onchain CLOB, and redeems the winning leg 1:1 after
 ///         settlement.
@@ -28,7 +28,7 @@ import {IKuruRouter} from "./interfaces/IKuruRouter.sol";
 ///      The factory holds exactly window.collateral for every window and never
 ///      touches it, so it can never be short. Trading happens entirely on Kuru;
 ///      this contract is issuance and settlement only.
-contract CellFactory is Ownable2Step, ReentrancyGuard {
+contract PitFactory is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // -----------------------------------------------------------------------
@@ -172,7 +172,7 @@ contract CellFactory is Ownable2Step, ReentrancyGuard {
             maxSize: 1e14,
             takerFeeBps: 0,
             makerFeeBps: 0,
-            kuruAmmSpread: 500 // widest allowed; Cell never funds the Kuru AMM vault
+            kuruAmmSpread: 500 // widest allowed; Pit never funds the Kuru AMM vault
         });
 
         emit SettlerUpdated(address(0), settler_);
@@ -242,10 +242,10 @@ contract CellFactory is Ownable2Step, ReentrancyGuard {
 
         string memory tag = _decimalString(windowId);
         OutcomeToken yes = new OutcomeToken(
-            string.concat("Cell YES #", tag), string.concat("cYES", tag), collateralDecimals, windowId
+            string.concat("Pit YES #", tag), string.concat("cYES", tag), collateralDecimals, windowId
         );
         OutcomeToken no = new OutcomeToken(
-            string.concat("Cell NO #", tag), string.concat("cNO", tag), collateralDecimals, windowId
+            string.concat("Pit NO #", tag), string.concat("cNO", tag), collateralDecimals, windowId
         );
 
         address yesMarket = _listOnKuru(address(yes));

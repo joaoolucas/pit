@@ -25,7 +25,7 @@ export const OUTCOME = {
 /**
  * Underlying labels, keyed by the keccak256 the contract stores.
  *
- * CellFactory takes a bytes32 so a new pair costs nothing onchain, but the grid
+ * PitFactory takes a bytes32 so a new pair costs nothing onchain, but the grid
  * filters on a human label. Doing the lookup here means the UI never has to hash
  * anything, and an unknown pair still indexes — it just shows as its hash.
  *

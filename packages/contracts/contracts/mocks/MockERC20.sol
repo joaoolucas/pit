@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @notice Faucet-style ERC20 used as collateral on testnet and in tests.
-///         On Monad mainnet, point CellFactory at real USDC instead.
+///         On Monad mainnet, point PitFactory at real USDC instead.
 contract MockERC20 is ERC20 {
     uint8 private immutable _decimals;
 

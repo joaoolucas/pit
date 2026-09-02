@@ -29,7 +29,7 @@ import {
   tickToCents,
   WINDOW_SECONDS,
   type Side,
-} from "@cell/core";
+} from "@pit/core";
 
 type CellQueryResult = {
   CellState: RawCellState[];

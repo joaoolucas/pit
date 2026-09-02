@@ -1,11 +1,11 @@
-name: cell
+name: pit
 description: >-
-  Cell — every 5-minute YES/NO window and the two Kuru books it lists on.
-  CellFactory addresses come from packages/contracts/deployments; run
+  Pit — every 5-minute YES/NO window and the two Kuru books it lists on.
+  PitFactory addresses come from packages/contracts/deployments; run
   `npm run sync` after a deploy instead of editing them by hand.
 ecosystem: evm
 
-# Kuru markets are created by CellFactory at runtime, so the indexer must follow
+# Kuru markets are created by PitFactory at runtime, so the indexer must follow
 # addresses it has never seen. Reorg rollback stays on: a five-minute market that
 # reports a fill twice is worse than one that reports it a block late.
 rollback_on_reorg: true
@@ -17,8 +17,8 @@ field_selection:
     - hash
 
 contracts:
-  - name: CellFactory
-    abi_file_path: abis/CellFactory.json
+  - name: PitFactory
+    abi_file_path: abis/PitFactory.json
     events:
       - event: WindowCreated(uint256 indexed windowId, bytes32 indexed underlying, uint64 startTs, uint64 endTs, uint256 strikeE8, address yes, address no, address yesMarket, address noMarket)
       - event: SetMinted(uint256 indexed windowId, address indexed account, uint256 amount)
@@ -40,6 +40,6 @@ chains:
   - id: 10143
     start_block: 0
     contracts:
-      - name: CellFactory
+      - name: PitFactory
         address: "0x0000000000000000000000000000000000000000"
       - name: KuruOrderBook

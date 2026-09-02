@@ -3,7 +3,7 @@
 import { chain } from "@/lib/config";
 import { useI18n } from "@/lib/i18n";
 import type { RawFill, RawFlow } from "@/lib/indexer";
-import { formatCents, shortAddress, sizeToContracts, tickToCents } from "@cell/core";
+import { formatCents, shortAddress, sizeToContracts, tickToCents } from "@pit/core";
 
 /**
  * The tape.

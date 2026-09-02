@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-import type { CellFactory, CellSettlementReceiver, MockERC20, MockKuruRouter } from "../typechain-types";
+import type { PitFactory, PitSettlementReceiver, MockERC20, MockKuruRouter } from "../typechain-types";
 
 const BTC_USD = ethers.keccak256(ethers.toUtf8Bytes("BTC-USD"));
 const E8 = 100_000_000n;
@@ -12,13 +12,13 @@ const E8 = 100_000_000n;
 const encodeReport = (priceE8: bigint, windowIds: bigint[]) =>
   ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256[]"], [priceE8, windowIds]);
 
-describe("CellSettlementReceiver", () => {
+describe("PitSettlementReceiver", () => {
   let owner: HardhatEthersSigner;
   let forwarder: HardhatEthersSigner;
   let stranger: HardhatEthersSigner;
 
-  let factory: CellFactory;
-  let receiver: CellSettlementReceiver;
+  let factory: PitFactory;
+  let receiver: PitSettlementReceiver;
   let usdc: MockERC20;
   let router: MockKuruRouter;
   let endTs: number;
@@ -31,11 +31,11 @@ describe("CellSettlementReceiver", () => {
     usdc = await (await ethers.getContractFactory("MockERC20")).deploy("USD Coin", "USDC", 6);
     router = await (await ethers.getContractFactory("MockKuruRouter")).deploy();
     factory = await (
-      await ethers.getContractFactory("CellFactory")
+      await ethers.getContractFactory("PitFactory")
     ).deploy(owner.address, await usdc.getAddress(), await router.getAddress(), owner.address, owner.address);
 
     receiver = await (
-      await ethers.getContractFactory("CellSettlementReceiver")
+      await ethers.getContractFactory("PitSettlementReceiver")
     ).deploy(owner.address, await factory.getAddress(), forwarder.address);
 
     // The receiver is the only address allowed to settle.

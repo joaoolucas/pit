@@ -17,7 +17,7 @@ import {
   sizeToContracts,
   tickToCents,
   type Side,
-} from "@cell/core";
+} from "@pit/core";
 
 /** Dollar amounts a tap away. Enough to size a trade without typing. */
 const CHIPS = [5, 25, 100] as const;
@@ -54,7 +54,7 @@ type Status =
  * units. **Take** is dollars in, dollars back — the two-tap path a tape trader
  * wants: pick a side, tap an amount, send. **Make** is a price and a size, which
  * is what someone posting a quote actually decides, and it is the half no payout
- * tile can offer: on Cell you can be the one collecting the spread.
+ * tile can offer: on Pit you can be the one collecting the spread.
  *
  * Every order leaves through the Kuru SDK. Nothing in this file records a trade
  * anywhere but on the book.

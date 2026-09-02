@@ -1,9 +1,9 @@
 {
-  "name": "cell",
+  "name": "pit",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Cell — a prediction grid on Monad. Every cell is a 5-minute YES/NO market on Kuru's onchain CLOB.",
+  "description": "Pit — a prediction grid on Monad. Every cell is a 5-minute YES/NO market on Kuru's onchain CLOB.",
   "workspaces": [
     "apps/web",
     "packages/core"
@@ -12,10 +12,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "npm run dev -w @cell/web",
-    "build": "npm run build -w @cell/web",
-    "lint": "npm run lint -w @cell/web",
-    "typecheck": "npm run typecheck -w @cell/core && npm run typecheck -w @cell/web",
+    "dev": "npm run dev -w @pit/web",
+    "build": "npm run build -w @pit/web",
+    "lint": "npm run lint -w @pit/web",
+    "typecheck": "npm run typecheck -w @pit/core && npm run typecheck -w @pit/web",
     "contracts:install": "npm --prefix packages/contracts install",
     "contracts:build": "npm --prefix packages/contracts run build",
     "contracts:test": "npm --prefix packages/contracts run test",

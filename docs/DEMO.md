@@ -28,7 +28,7 @@ npm --prefix packages/contracts run node
 ```bash
 npm --prefix packages/contracts run deploy:local
 #   cUSD         0x…
-#   CellFactory  0x…
+#   PitFactory  0x…
 #   Receiver     0x…
 
 COLUMNS=6 npm --prefix packages/contracts run windows:roll:local
@@ -60,7 +60,7 @@ cat > apps/web/.env.local <<'EOF'
 NEXT_PUBLIC_CHAIN_ID=31337
 NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545
 NEXT_PUBLIC_EXPLORER_URL=http://127.0.0.1:8545
-NEXT_PUBLIC_CELL_FACTORY=<from step 2>
+NEXT_PUBLIC_PIT_FACTORY=<from step 2>
 NEXT_PUBLIC_COLLATERAL=<from step 2>
 NEXT_PUBLIC_INDEXER_URL=http://localhost:8080/v1/graphql
 NEXT_PUBLIC_PASSKEY_RP_ID=localhost
@@ -166,7 +166,7 @@ settlement over:
 
 ```solidity
 receiver.setForwarder(<the Forwarder for your DON>);
-factory.setSettler(<CellSettlementReceiver>);
+factory.setSettler(<PitSettlementReceiver>);
 ```
 
 After that the deploy key cannot settle anything. If the workflow ever goes
@@ -185,7 +185,7 @@ npm run build                              # the app
 ```
 
 The most informative single test is
-`packages/contracts/test/CellFactory.test.ts` →
+`packages/contracts/test/PitFactory.test.ts` →
 *"end to end: seed the book, take the offer, redeem the winner"*. It mints sets,
 quotes both sides, lifts the offer for 100 contracts at 0.44, settles above the
 strike and checks the taker is up exactly $56 on $44 of risk.

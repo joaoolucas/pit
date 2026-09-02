@@ -36,7 +36,7 @@ const label = IBM_Plex_Sans_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "Cell — the five-minute option chain",
+  title: "Pit — the five-minute option chain",
   description:
     "A board of five-minute YES/NO markets on BTC, each listed as a spot pair on Kuru's onchain order book. Indexed by Envio, settled by a Chainlink CRE workflow.",
 };
