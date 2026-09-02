@@ -149,7 +149,10 @@ export function Terminal() {
           column that scrolls — stacking them inside a locked viewport height
           left the panel squashed to nothing with no way to reach it. */}
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-rows-1 lg:gap-2 lg:overflow-hidden lg:grid-cols-[1fr_360px]">
-        <section className="min-h-[26rem] overflow-hidden lg:min-h-0">
+        {/* The frame is Pit; what is inside it is a board. Rounding the surface
+            and ruling the grid within it is the whole compromise: the chrome
+            keeps the carnival, the instrument keeps its lines. */}
+        <section className="panel min-h-[26rem] overflow-hidden rounded-[20px] shadow-[0_6px_0_rgba(20,8,28,0.28)] lg:min-h-0">
           {error && !data ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
               <p className="text-[13px] text-[var(--color-no)]">
@@ -182,7 +185,7 @@ export function Terminal() {
             <CellPanel cell={selected} now={now} onRequireRisk={risk.require} />
           </div>
         ) : (
-          <aside className="panel hidden flex-col items-center justify-center gap-3 rounded-[28px] p-10 text-center shadow-[0_8px_0_rgba(20,8,28,0.28)] lg:flex">
+          <aside className="panel hidden flex-col items-center justify-center gap-3 rounded-[20px] p-10 text-center shadow-[0_6px_0_rgba(20,8,28,0.28)] lg:flex">
             <BalloonCluster />
             <p className="readout text-[22px] text-[var(--color-foam)]">{t("cell.select")}</p>
             <p className="max-w-[15rem] text-[13px] leading-relaxed text-[var(--color-foam-faint)]">

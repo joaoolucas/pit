@@ -121,9 +121,9 @@ export function CellPanel({
   const cellKey = makeCellKey({ underlying: UNDERLYING, endTs: cell.endTs, strikeE8: cell.strikeE8 });
 
   return (
-    <aside className="panel flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] shadow-[0_8px_0_rgba(20,8,28,0.28)]">
+    <aside className="panel flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] shadow-[0_6px_0_rgba(20,8,28,0.28)]">
       <header className="shrink-0">
-        <div className="px-4 pb-3 pt-4">
+        <div className="px-4 pb-2 pt-3">
           <h2 className="mb-1 text-[15px] font-extrabold leading-snug">
             {t("cell.claim", {
               strike: `$${e8ToUsd(cell.strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
@@ -160,7 +160,7 @@ export function CellPanel({
             YES, the strike, NO — in that order, because the point of putting
             them on one line is that the two prices are two halves of one
             dollar and the strike is what they are halves of. */}
-        <div className="mx-2 mt-3 grid grid-cols-[1fr_auto_1fr] items-stretch gap-1">
+        <div className="mx-2 mt-2 grid grid-cols-[1fr_auto_1fr] items-stretch gap-1">
           <LegPrice
             side="yes"
             quote={quotes.yes}

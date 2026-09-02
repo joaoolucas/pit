@@ -108,84 +108,76 @@ body {
 }
 
 /*
- * A tile is a balloon. `--fill` is (probability, depth): hue is the side,
- * intensity is how much is resting. Nobody quoting → outline only.
+ * A cell in the chain.
+ *
+ * Square, flush with its neighbours, separated by a hairline — the shape a
+ * trader already reads, and the only shape in which a row leads the eye to its
+ * strike and a column to its expiry. `--fill` is (probability, depth): hue is
+ * the side, alpha is how much is resting. Nobody quoting → the rules draw the
+ * cell and nothing else does.
  */
-.tile {
+.cell {
   position: relative;
   isolation: isolate;
-  border-radius: 22px;
+}
+
+.tile {
   background: var(--fill, transparent);
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 244, 232, 0.38),
-    inset 0 -10px 14px rgba(20, 8, 28, 0.16),
-    0 5px 0 rgba(20, 8, 28, 0.22);
   transition:
-    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 160ms ease,
+    box-shadow 120ms ease,
     background-color 200ms ease;
 }
 
 .tile:hover:not([data-empty="true"]) {
-  transform: translateY(-3px);
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
-    inset 0 -8px 12px rgba(20, 8, 28, 0.12),
-    0 9px 0 rgba(20, 8, 28, 0.18),
-    0 18px 28px rgba(20, 8, 28, 0.22);
+  box-shadow: inset 0 0 0 1px var(--color-rule-bright);
 }
 
-.tile[data-selected="true"] {
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
-    0 0 0 3px var(--color-live),
-    0 7px 0 rgba(20, 8, 28, 0.2);
+/*
+ * The open cell, and it has to beat the hover ring.
+ *
+ * :hover:not(...) outweighs a bare attribute selector, so pointing at the cell
+ * you already had open erased the only mark saying it was open — on the one
+ * cell you are most likely to be pointing at.
+ */
+.tile[data-selected="true"],
+.tile[data-selected="true"]:hover {
+  box-shadow: inset 0 0 0 2px var(--color-live);
   z-index: 1;
 }
 
 .tile:focus-visible {
   outline: none;
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
-    0 0 0 3px var(--color-trace),
-    0 7px 0 rgba(20, 8, 28, 0.2);
+  box-shadow: inset 0 0 0 2px var(--color-trace);
   z-index: 2;
 }
 
 .tile[data-empty="true"] {
   background: transparent;
-  box-shadow: inset 0 0 0 2px var(--color-rule);
 }
 
 .tile[data-empty="true"]:hover {
-  box-shadow: inset 0 0 0 2px var(--color-rule-bright);
+  box-shadow: inset 0 0 0 1px var(--color-rule-bright);
 }
 
 /*
- * A slot with no market behind it yet.
+ * The crosshair.
  *
- * The roller opens columns a minute at a time, so most of the chain is empty
- * most of the time. Drawing nothing there made the board look like it had
- * failed to load; a hairline says "this square exists, nothing is listed on it"
- * without ever competing with a tile that has a price.
+ * On a ruled grid the row and the column already lead the eye; this only says
+ * which pair you are on, and the two heads say what they are called.
  */
-.slot {
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-rule) 55%, transparent);
+.cell.aimed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Behind the number, above the paint: .cell isolates, so -1 stays inside the
+     cell and never veils the one figure the board is for. */
+  z-index: -1;
+  background: color-mix(in oklab, var(--color-foam) 7%, transparent);
+  pointer-events: none;
 }
 
-/*
- * The board scrolls under its own clock row. A hard cut there reads as a
- * clipping bug, so the first and last few pixels fade instead.
- */
-.board-scroll {
-  --board-fade: 14px;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--board-fade),
-    #000 calc(100% - var(--board-fade)),
-    transparent 100%
-  );
+.aimed-head {
+  background: color-mix(in oklab, var(--color-foam) 13%, transparent);
 }
 
 /* At-the-money: a soft sky wash, not a spreadsheet highlight. */
@@ -202,44 +194,9 @@ body {
 .tile.atm {
   background-color: var(--fill, transparent);
   background-image: linear-gradient(
-    color-mix(in oklab, var(--color-trace) 9%, transparent),
-    color-mix(in oklab, var(--color-trace) 9%, transparent)
+    color-mix(in oklab, var(--color-trace) 10%, transparent),
+    color-mix(in oklab, var(--color-trace) 10%, transparent)
   );
-}
-
-/*
- * The crosshair.
- *
- * A chain is wide enough that a tile in the middle of it belongs to a strike and
- * an expiry you cannot read without tracing two lines by eye. Aiming at one
- * lights its whole row and column, and brightens the two heads that name it.
- */
-.slot {
-  position: relative;
-}
-
-.tile.aimed::after,
-.slot.aimed::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* Behind the number, above the paint: .tile isolates, so -1 stays inside the
-     tile and never veils the one figure the board is for. */
-  z-index: -1;
-  border-radius: inherit;
-  background: color-mix(in oklab, var(--color-foam) 9%, transparent);
-  pointer-events: none;
-}
-
-/*
- * The two heads that name the aimed cell. These have to carry across the width
- * of the board from the corner of your eye, so they get more than the tiles do:
- * the tint sits under type that is already there, where the tiles' tint sits
- * under paint that is competing with it.
- */
-.aimed-head {
-  background: color-mix(in oklab, var(--color-foam) 15%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--color-foam) 22%, transparent);
 }
 
 /* --------------------------------------------------------------- controls --- */

@@ -18,8 +18,8 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
   const { t, locale, setLocale } = useI18n();
 
   return (
-    <header className="shrink-0 px-3 pt-3">
-      <div className="panel flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[28px] px-4 py-2.5 shadow-[0_6px_0_rgba(20,8,28,0.28)]">
+    <header className="shrink-0 px-2 pt-2">
+      <div className="panel flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[20px] px-4 py-1.5 shadow-[0_5px_0_rgba(20,8,28,0.28)]">
         {/* The mark: three balloons and a fat word. */}
         <div className="flex items-center gap-3">
           <span aria-hidden className="flex items-end gap-0.5">
@@ -27,7 +27,7 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
             <span className="orb size-[16px] bg-[var(--color-live)]" />
             <span className="orb size-[11px] bg-[var(--color-no)]" />
           </span>
-          <span className="mark text-[28px] leading-none text-[var(--color-foam)]">Pit</span>
+          <span className="mark text-[24px] leading-none text-[var(--color-foam)]">Pit</span>
           <span className="hidden text-[12px] font-medium text-[var(--color-foam-faint)] xl:inline">
             {t("app.tagline")}
           </span>
@@ -38,7 +38,7 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
               moves. */}
           <div className="flex items-baseline gap-2">
             <span className="label">BTC</span>
-            <span className="readout text-[28px] leading-none">
+            <span className="readout text-[24px] leading-none">
               {spotE8 === null
                 ? "—"
                 : e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}

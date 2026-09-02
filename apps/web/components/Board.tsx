@@ -12,6 +12,7 @@ import {
   locateOnLadder,
   Outcome,
   sizeToContracts,
+  tickToCents,
   tileInk,
   WINDOW_SECONDS,
   type TileInk,
@@ -21,7 +22,7 @@ import type { BoardCell } from "./types";
 /** Rows never get thinner than this — the multiple is the headline, so it needs room. */
 const MIN_ROW_HEIGHT = 72;
 /** The strike axis, on the right, where a chart puts its price scale. */
-const AXIS_WIDTH = 92;
+const AXIS_WIDTH = 106;
 /** Minutes of realised price kept to the left of now. */
 const TRACE_MINUTES = 30;
 /**
@@ -33,8 +34,17 @@ const TRACE_MINUTES = 30;
  * lined up.
  */
 const TRACE_WIDTH = "28%";
-/** Gap between balloons. Shared by the head row and the body so they line up. */
-const BOARD_GAP = 6;
+/**
+ * No gap between cells.
+ *
+ * Six pixels was enough to stop a row being a row. The eye could no longer run
+ * from a cell in the middle of the board out to its strike on the axis, or up to
+ * its expiry — and the trace's strike lines, drawn at multiples of the row
+ * height, drifted six pixels a row out of step with the chain they are supposed
+ * to be level with. Cells share edges and a hairline tells them apart. The grid
+ * is the instrument; the round corners belong to the chrome around it.
+ */
+const BOARD_GAP = 0;
 
 export const cellId = (endTs: number, strikeE8: bigint) => `${endTs}:${strikeE8}`;
 
@@ -144,9 +154,9 @@ export function Board({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Heads: the clock, which is the other half of every market here. */}
-      <div className="flex shrink-0 px-1.5 pt-2">
+      <div className="flex shrink-0 border-b rule">
         <div
-          className="flex min-w-0 shrink-0 items-end justify-between px-3 pb-2"
+          className="flex min-w-0 shrink-0 items-end justify-between px-3 pb-1.5 pt-2"
           style={{ width: TRACE_WIDTH }}
         >
           <span className="label">{t("board.realised", { minutes: TRACE_MINUTES })}</span>
@@ -165,21 +175,22 @@ export function Board({
               aimed={aim?.column === index}
             />
           ))}
-          <div className="flex items-end justify-end px-2 pb-2">
-            <span className="label">{t("board.strike")}</span>
+          {/* Naming the axis names every row on it. "Strike" is the right word
+              and says nothing to anyone meeting a prediction market for the
+              first time; this way the claim reads straight off the board —
+              "BTC above" at the head, the level on the row. */}
+          <div className="flex items-end justify-end border-l rule px-2 pb-1.5">
+            <span className="label text-right leading-[1.25]">{t("board.strikeAxis")}</span>
           </div>
         </div>
       </div>
 
       {/* Body: the trace on the left, the chain on the right, sharing rows. */}
-      {/* The body scrolls under the heads. Without the mask a row is sliced
-          flat against the clock row and reads as a rendering fault rather than
-          as more board. */}
       <div
         ref={bodyRef}
         onScroll={clearAim}
         onMouseLeave={clearAim}
-        className="board-scroll flex min-h-0 flex-1 overflow-y-auto px-1.5 pb-1"
+        className="flex min-h-0 flex-1 overflow-y-auto"
       >
         <Trace
           candles={candles}
@@ -219,7 +230,11 @@ export function Board({
 
       <Legend />
 
-      {aim?.cell && <CellCard cell={aim.cell} rect={aim.rect} now={now} />}
+      {/* Not over the open cell — the rail beside it is already saying this,
+          louder. */}
+      {aim?.cell && aim.cell.id !== selectedId && (
+        <CellCard cell={aim.cell} rect={aim.rect} now={now} />
+      )}
     </div>
   );
 }
@@ -249,8 +264,8 @@ function ColumnHead({
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-0.5 rounded-[18px] px-1 pb-2 pt-1.5 transition-colors ${
-        live ? "bg-[color-mix(in_oklab,var(--color-live)_14%,transparent)]" : ""
+      className={`relative flex flex-col items-center gap-0.5 border-l rule px-1 pb-2 pt-1.5 transition-colors ${
+        live ? "bg-[color-mix(in_oklab,var(--color-live)_16%,transparent)]" : ""
       } ${aimed ? "aimed-head" : ""}`}
     >
       <span
@@ -274,10 +289,10 @@ function ColumnHead({
       {live && (
         <span
           aria-hidden
-          className="absolute bottom-1 left-2 right-2 h-[5px] overflow-hidden rounded-full bg-[var(--color-rule)]"
+          className="absolute bottom-0 left-0 right-0 h-[3px] overflow-hidden bg-[var(--color-rule)]"
         >
           <span
-            className="block h-full rounded-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
+            className="block h-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
             style={{ width: `${(elapsed * 100).toFixed(1)}%` }}
           />
         </span>
@@ -343,7 +358,7 @@ function StrikeRow({
       {/* The strike axis. The spot badge rides the at-the-money row, so the
           number every other strike is judged against is never a glance away. */}
       <div
-        className={`relative flex items-center justify-end gap-2 rounded-[18px] px-2 transition-colors ${
+        className={`relative flex items-center justify-end gap-2 border-b border-l rule px-2 transition-colors ${
           atm ? "atm" : ""
         } ${aimedRow ? "aimed-head" : ""}`}
         style={{ height: rowHeight }}
@@ -368,72 +383,29 @@ function StrikeRow({
 }
 
 /**
- * The pigments, as numbers.
+ * Turns the two-channel ink into a CSS colour.
  *
- * Mirrors --color-yes / --color-no / --color-deep / --color-foam in globals.css.
- * The tile paints itself with color-mix on those tokens; this copy exists only
- * so the label can work out what colour it is about to sit on.
+ * Toward the ground, not toward white. Cutting the pastels with white made a
+ * deep book paint a *light* cell, which put pale type on a pale fill and cost
+ * the board the one number it exists to show: the deeper the market, the harder
+ * its multiple was to read. Cut with the dusk instead and the cell stays dark at
+ * every depth, so the side's own colour carries the number the whole way and no
+ * arithmetic is needed to decide what shade the type should be.
+ *
+ * Hue is the side, saturation is conviction, alpha is how much is resting.
  */
-const PIGMENT = { yes: [125, 255, 179], no: [255, 143, 171] } as const;
-const GROUND = [26, 18, 36] as const;
-const FOAM = [255, 244, 232] as const;
-
-/** How much white the pigment is cut with, and how opaque it goes on. */
-const whiteCut = (ink: TileInk) => 1 - (0.55 + ink.conviction * 0.45);
-const alphaOf = (ink: TileInk) => 0.42 + ink.presence * 0.48;
-
-/** Turns the two-channel ink into a CSS colour. Hue by side, alpha by depth. */
 function fillFor(ink: TileInk): string {
   if (ink.side === "none" || ink.presence === 0) return "transparent";
+  // Toward the neutral, so a market at fifty cents is grey: the book has no
+  // opinion and the cell should not pretend otherwise.
   const hue = `color-mix(in oklab, var(--color-${ink.side}) ${(
-    55 +
-    ink.conviction * 45
-  ).toFixed(0)}%, white)`;
-  const alpha = (alphaOf(ink) * 100).toFixed(1);
+    32 +
+    ink.conviction * 62
+  ).toFixed(0)}%, var(--color-foam-faint))`;
+  // Low ceiling on purpose. Above about a third the cell goes light enough to
+  // swallow its own number, which is the trade the balloons lost.
+  const alpha = (6 + ink.presence * 28).toFixed(1);
   return `color-mix(in oklab, ${hue} ${alpha}%, transparent)`;
-}
-
-const luminance = ([r, g, b]: readonly number[]): number => {
-  const channel = (v: number) => {
-    const c = (v ?? 0) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(r!) + 0.7152 * channel(g!) + 0.0722 * channel(b!);
-};
-
-const contrast = (a: readonly number[], b: readonly number[]): number => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi! + 0.05) / (lo! + 0.05);
-};
-
-/**
- * What colour the multiple is printed in.
- *
- * The pigments are pastels, so a deep book paints a *light* balloon — and the
- * side colour that reads beautifully on a hollow tile disappears into it. The
- * number is the single most important thing on this board, so it does not get to
- * be a casualty of the depth channel: on a painted balloon the label is whichever
- * of the ground or the foam actually reads against the paint, and the balloon's
- * own hue goes on saying which side it is. Only a hollow tile, where there is no
- * paint to say it, keeps the side colour in the type.
- */
-function labelFor(ink: TileInk): { strong: string; quiet: string } {
-  const side = ink.side === "no" ? "no" : "yes";
-
-  if (ink.side === "none" || ink.presence === 0) {
-    return { strong: `var(--color-${side})`, quiet: "var(--color-foam-dim)" };
-  }
-
-  const white = whiteCut(ink);
-  const alpha = alphaOf(ink);
-  const composite = PIGMENT[side].map((channel, i) => {
-    const pigment = channel * (1 - white) + 255 * white;
-    return pigment * alpha + GROUND[i]! * (1 - alpha);
-  });
-
-  return contrast(composite, GROUND) >= contrast(composite, FOAM)
-    ? { strong: "var(--color-deep)", quiet: "color-mix(in oklab, var(--color-deep) 68%, transparent)" }
-    : { strong: "var(--color-foam)", quiet: "var(--color-foam-dim)" };
 }
 
 function Tile({
@@ -468,15 +440,15 @@ function Tile({
   const take = (event: { currentTarget: HTMLElement }) =>
     onAim({ row, column, cell: cell ?? null, rect: event.currentTarget.getBoundingClientRect() });
 
-  // No market at this (expiry, strike) yet — the roller has not opened it. An
-  // invisible div here made whole columns read as a broken board, so the slot
-  // gets a faint outline: present, empty, and visibly not a tile you can click.
+  // No market at this (expiry, strike) yet — the roller has not opened it. The
+  // grid's own rules draw the square, which is all it needs: present, empty, and
+  // visibly not something you can click.
   if (!cell) {
     return (
       <div
         aria-hidden
         onMouseEnter={take}
-        className={`slot rounded-[22px] ${atm ? "atm" : ""} ${aimed ? "aimed" : ""}`}
+        className={`cell border-b border-l rule ${atm ? "atm" : ""} ${aimed ? "aimed" : ""}`}
         style={{ height: rowHeight }}
       />
     );
@@ -485,7 +457,6 @@ function Tile({
   const settled = cell.outcome !== Outcome.Unresolved;
   const cents = cell.cents;
   const ink = tileInk(settled ? null : cents, cell.depth, maxDepth);
-  const label = labelFor(ink);
 
   return (
     <button
@@ -496,7 +467,7 @@ function Tile({
       onMouseEnter={take}
       onFocus={take}
       onBlur={() => onAim(null)}
-      className={`tile sweep flex flex-col items-center justify-center gap-1 ${
+      className={`tile cell sweep flex flex-col items-center justify-center gap-1 border-b border-l rule ${
         atm ? "atm" : ""
       } ${aimed ? "aimed" : ""}`}
       style={
@@ -528,12 +499,12 @@ function Tile({
         <>
           <span
             className="readout text-[22px] leading-none sm:text-[24px]"
-            style={{ color: label.strong }}
+            style={{ color: `var(--color-${ink.side === "no" ? "no" : "yes"})` }}
           >
             {formatMultiple(cents)}
           </span>
           {/* What it costs. How deep it is, the paint already said. */}
-          <span className="data text-[11px] leading-none" style={{ color: label.quiet }}>
+          <span className="data text-[11px] leading-none text-[var(--color-foam-dim)]">
             {formatCents(cents)}
           </span>
         </>
@@ -740,9 +711,25 @@ function CellCard({ cell, rect, now }: { cell: BoardCell; rect: DOMRect; now: nu
 
   const remaining = cell.endTs - now;
   const settled = cell.outcome !== Outcome.Unresolved;
-  const yes = cell.cents;
-  const no = yes === null ? null : 100 - yes;
   const contracts = Math.round(sizeToContracts(cell.depth));
+
+  /**
+   * What each leg costs, off its own book.
+   *
+   * This used to print the tile's mid for YES and a hundred minus it for NO —
+   * two numbers, one of which was invented. The rail beside it reads the actual
+   * offers, so hovering a cell and opening it gave different prices for the same
+   * market, and the NO price had never been quoted by anyone. Two books, two
+   * asks, and the spread below says how they sit against the mid on the tile.
+   */
+  const ask = (side: "yes" | "no") => {
+    const leg = cell.legs[side];
+    if (!leg) return null;
+    if (leg.bestAsk) return tickToCents(BigInt(leg.bestAsk));
+    return leg.bestBid ? tickToCents(BigInt(leg.bestBid)) : null;
+  };
+  const yes = ask("yes");
+  const no = ask("no");
 
   const WIDTH = 216;
   const GAP = 10;
@@ -772,13 +759,13 @@ function CellCard({ cell, rect, now }: { cell: BoardCell; rect: DOMRect; now: nu
           : t("board.cardLeft", { clock: formatClock(remaining) })}
       </p>
 
-      {yes === null ? (
+      {yes === null && no === null ? (
         <p className="label mt-2">{t("board.noDepth")}</p>
       ) : (
         <>
           <div className="mt-2 flex items-baseline justify-between gap-2">
             <Leg side="yes" cents={yes} />
-            <Leg side="no" cents={no!} />
+            <Leg side="no" cents={no} />
           </div>
 
           <dl className="mt-2 flex flex-col gap-0.5 border-t rule pt-1.5">
@@ -796,7 +783,7 @@ function CellCard({ cell, rect, now }: { cell: BoardCell; rect: DOMRect; now: nu
   );
 }
 
-function Leg({ side, cents }: { side: "yes" | "no"; cents: number }) {
+function Leg({ side, cents }: { side: "yes" | "no"; cents: number | null }) {
   const { t } = useI18n();
   return (
     <span className="flex flex-col gap-0.5">
@@ -804,7 +791,7 @@ function Leg({ side, cents }: { side: "yes" | "no"; cents: number }) {
         {t(`ticket.${side}` as const)}
       </span>
       <span className="readout text-[20px] leading-none" style={{ color: `var(--color-${side})` }}>
-        {formatCents(cents)}
+        {cents === null ? "—" : formatCents(cents)}
       </span>
     </span>
   );
