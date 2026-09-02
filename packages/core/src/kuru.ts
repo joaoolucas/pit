@@ -87,3 +87,39 @@ export function formatProbability(probability: number): string {
 export function formatTickAsPrice(tick: bigint | number): string {
   return tickToProb(tick).toFixed(3);
 }
+
+/**
+ * What an order actually costs and pays.
+ *
+ * Buying and selling a binary are not mirror images, and stating them as if they
+ * were is the easiest way to put a wrong number in front of someone:
+ *
+ *   buy  q at p — pay p·q, receive q if the leg wins. Risk is what you paid.
+ *   sell q at p — collect p·q now, owe q if the leg wins. Risk is (1 − p)·q,
+ *                 and the profit is the premium, not the notional.
+ *
+ * `price` is a probability in (0, 1) and `size` is contracts. Both are plain
+ * numbers because this feeds a form, not a transaction — the order that goes to
+ * Kuru is built from the same strings the user typed.
+ */
+export type Payoff = {
+  /** The most this order can lose. */
+  risk: number;
+  /** What arrives if the leg finishes in the money. */
+  proceeds: number;
+  /** proceeds minus what was paid for them. */
+  profit: number;
+  /** Return on risk, e.g. 1.9 for a leg bought at 0.53. */
+  multiple: number;
+};
+
+export function payoff(price: number, size: number, isBuy: boolean): Payoff | null {
+  if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
+  if (price <= 0 || price >= 1 || size <= 0) return null;
+
+  const risk = isBuy ? price * size : (1 - price) * size;
+  const proceeds = isBuy ? size : price * size;
+  const profit = isBuy ? size - price * size : price * size;
+
+  return { risk, proceeds, profit, multiple: risk === 0 ? Infinity : proceeds / risk };
+}

@@ -25,6 +25,7 @@
     "indexer:install": "npm --prefix packages/indexer install",
     "indexer:codegen": "npm --prefix packages/indexer run codegen",
     "indexer:dev": "npm --prefix packages/indexer run dev",
-    "cre:simulate": "npm --prefix packages/cre run simulate"
+    "cre:simulate": "npm --prefix packages/cre run simulate",
+    "test": "npm --prefix packages/core run test && npm --prefix packages/contracts run test && npm --prefix packages/indexer run test && npm --prefix packages/cre run check"
   }
 }

@@ -9,7 +9,7 @@ import { MY_ORDERS_QUERY, usePolledQuery, type RawOrder } from "@/lib/indexer";
 import { cancelOrders, mintSet, placeLimit, redeem } from "@/lib/kuru";
 import { formatUnits, useCollateral } from "@/lib/useCollateral";
 import { useWallet } from "@/lib/wallet";
-import { Outcome, sizeToContracts, tickToProb, type Side } from "@cell/core";
+import { Outcome, payoff, sizeToContracts, tickToProb, type Side } from "@cell/core";
 
 type Props = {
   market: string;
@@ -59,13 +59,12 @@ export function OrderTicket({ market, side, windowId, outcome, suggestedPrice, o
   );
   const myOrders = orderData?.Order ?? [];
 
+  // The three numbers a trader checks before pressing the button. Buying and
+  // selling a binary are not mirror images, so the arithmetic lives in
+  // @cell/core next to its tests rather than inline in a form.
   const numbers = useMemo(() => {
-    const p = Number(price);
-    const q = Number(size);
-    if (!Number.isFinite(p) || !Number.isFinite(q) || p <= 0 || q <= 0) return null;
-    const cost = isBuy ? p * q : (1 - p) * q; // selling a leg risks the other side
-    const payout = q;
-    return { cost, payout, profit: payout - cost, price: p, size: q };
+    const quote = payoff(Number(price), Number(size), isBuy);
+    return quote === null ? null : { ...quote, price: Number(price), size: Number(size) };
   }, [price, size, isBuy]);
 
   const submit = async () => {
@@ -201,12 +200,18 @@ export function OrderTicket({ market, side, windowId, outcome, suggestedPrice, o
         {t("ticket.postOnly")}
       </label>
 
-      {/* The payoff, in words a person uses. */}
+      {/* The payoff, in words a person uses, and labelled for the side actually
+          being traded — "max payout" means something different when you are the
+          one writing the contract. */}
       <dl className="flex flex-col gap-1 rounded border hairline bg-[var(--color-raised)] px-2.5 py-2 text-[11px]">
-        <Line label={t("ticket.cost")} value={numbers ? `${numbers.cost.toFixed(2)} ${collateral.symbol}` : "—"} />
         <Line
-          label={t("ticket.maxPayout")}
-          value={numbers ? `${numbers.payout.toFixed(2)} ${collateral.symbol}` : "—"}
+          label={isBuy ? t("ticket.cost") : t("ticket.maxLoss")}
+          value={numbers ? `${numbers.risk.toFixed(2)} ${collateral.symbol}` : "—"}
+          colour={isBuy ? undefined : "var(--color-no)"}
+        />
+        <Line
+          label={isBuy ? t("ticket.maxPayout") : t("ticket.premium")}
+          value={numbers ? `${numbers.proceeds.toFixed(2)} ${collateral.symbol}` : "—"}
         />
         <Line
           label={t("ticket.profit")}
