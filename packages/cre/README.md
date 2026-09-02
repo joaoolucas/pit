@@ -1,10 +1,12 @@
-# Pit settlement — Chainlink CRE
+# Pit's operating loop — Chainlink CRE
 
 A five-minute binary needs two facts that live in different places: **when** the
 window closed, which is onchain, and **what the price was**, which is not. CRE is
 here because it is the one thing that can hold both inside a single attested
-execution and produce a signed result the chain will accept. It is not narration
-around a cron job — remove it and there is no trustworthy settle.
+execution and produce a signed result the chain will accept. Rolling the next
+column needs exactly those two facts as well — the strike ladder is anchored to
+spot — so the workflow does both. It is not narration around a cron job: remove
+it and there is no trustworthy settle, and no one opening the next column.
 
 ```
 cron (30s)
@@ -15,9 +17,13 @@ cron (30s)
    ├─ 2. offchain price  GET api.coinbase.com/v2/prices/BTC-USD/spot
    │                     → once per DON node, median across the DON
    │
-   └─ 3. one report      abi.encode(priceE8, windowIds[])
-                         DON signs → Forwarder → PitSettlementReceiver
-                                                 → PitFactory.settle(id, price)
+   ├─ 3. settle report   abi.encode(priceE8, windowIds[])
+   │                     DON signs → Forwarder → PitSettlementReceiver
+   │                                             → PitFactory.settle(id, price)
+   │
+   └─ 4. roll report     abi.encode(underlying, windowSeconds, ends[], strikeE8s[])
+                         DON signs → Forwarder → PitRollReceiver
+                                                 → PitFactory.createWindow(...)
 ```
 
 ## The three decisions
@@ -25,10 +31,12 @@ cron (30s)
 **One report per column, not per cell.** Seven strikes close at the same instant
 on a 5-minute grid. `pendingSettlement` returns them together and the receiver
 loops, so a column costs one report instead of seven carrying the same price.
+The roll is a second report with its own gas budget: opening a cell deploys two
+ERC20s and two Kuru markets, and settlement should not wait behind that.
 
-**The workflow is stateless.** It never remembers what it settled. The chain is
-the state and `pendingSettlement` is the query, so a missed tick, a restart or a
-redeploy all self-heal on the next run.
+**The workflow is stateless.** It never remembers what it settled or opened. The
+chain is the state; `pendingSettlement` and `missingWindows` are the queries, so
+a missed tick, a restart or a redeploy all self-heal on the next run.
 
 **The price is a scaled integer, end to end.** `parseE8` turns `"65123.45"` into
 `6512345000000n` without a float in the middle. Median consensus runs over these
@@ -38,16 +46,17 @@ values and a window can settle on the last cent.
 
 | File                             | What it is                                              |
 | -------------------------------- | ------------------------------------------------------- |
-| `settle-workflow/main.ts`        | the workflow: cron → read → price → report → write       |
+| `settle-workflow/main.ts`        | the workflow: cron → clock → price → settle report → roll report |
 | `settle-workflow/price.ts`       | decimal-string → 1e8 integer, testable on its own        |
-| `settle-workflow/abi.ts`         | the single PitFactory fragment the workflow calls       |
+| `settle-workflow/ladder.ts`      | hand-kept copy of `@pit/core` grid geometry              |
+| `settle-workflow/abi.ts`         | the PitFactory fragments the workflow calls              |
 | `settle-workflow/config.*.json`  | schedule, price URL, chain and contract addresses        |
 | `settle-workflow/workflow.yaml`  | staging and production artifact paths                    |
 | `project.yaml`                   | targets and RPCs                                         |
-| `scripts/check.mjs`              | pre-flight: ABI drift, zero addresses, price parsing     |
+| `scripts/check.mjs`              | pre-flight: ABI drift, zero addresses, price parsing, ladder parity |
 | `scripts/sync.mjs`               | copies deployed addresses into the configs               |
 
-The onchain half is `packages/contracts/contracts/PitSettlementReceiver.sol`.
+The onchain half is `PitSettlementReceiver.sol` and `PitRollReceiver.sol`.
 
 ## Running it
 
@@ -71,22 +80,26 @@ npm run activate
 ```
 
 `npm run simulate` is the one to run in front of a judge: it makes the real
-`pendingSettlement` call against Monad testnet, the real HTTP fetch to Coinbase,
-and prints the report it would have written.
+`pendingSettlement` and `missingWindows` calls against Monad testnet, the real
+HTTP fetch to Coinbase, and prints the reports it would have written.
 
 ## Wiring the Forwarder
 
-`PitFactory.settle` is gated on a single `settler` address. The deploy script
-leaves that as the deploy key so a demo is never blocked on CRE, and deploys
-`PitSettlementReceiver` alongside it. Once the workflow is live and you have the
-Forwarder address for your DON:
+`PitFactory.settle` is gated on `settler` and `createWindow` on `operator`. The
+deploy script leaves both as the deploy key so a demo is never blocked on CRE,
+and deploys both receivers alongside the factory. Once the workflow is live and
+you have the Forwarder address for your DON:
 
 ```solidity
-receiver.setForwarder(<forwarder>);   // who may deliver reports
+receiver.setForwarder(<forwarder>);   // who may deliver settle reports
+roller.setForwarder(<forwarder>);     // who may deliver roll reports
 factory.setSettler(<receiver>);       // who may settle
+factory.setOperator(<roller>);        // who may open cells
 ```
 
-From that point the deploy key cannot settle anything.
+From that point the deploy key cannot settle or open anything. `tick` then
+prints `roll: CRE owns the operator` and skips both stages, which is the
+correct steady state.
 
 ## What is deliberately not done yet
 

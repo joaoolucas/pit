@@ -1,10 +1,12 @@
 /**
- * Keeps the grid full.
+ * Keeps the grid full. The fallback for when the CRE workflow is not the operator.
  *
  * Reads spot, builds the strike ladder around it, and opens every (column, row)
  * cell in the next `columns` five-minute windows that does not exist yet. Safe to
  * run every minute: `findWindow` makes it idempotent, so a re-run costs one
- * static call per cell and nothing else.
+ * static call per cell and nothing else. Once `setOperator` points at
+ * PitRollReceiver this reports that and does nothing, which is the correct
+ * steady state — the same treatment settlement already has.
  */
 import { ethers, network } from "hardhat";
 
@@ -33,6 +35,8 @@ export type RollResult = {
   existing: number;
   spotE8: bigint;
   stepUsd: number;
+  /** Null when this signer is not the operator; nothing was attempted. */
+  operator: string | null;
 };
 
 export async function rollWindows(options: RollOptions = {}): Promise<RollResult> {
@@ -46,6 +50,17 @@ export async function rollWindows(options: RollOptions = {}): Promise<RollResult
   const deployment = readDeployment();
   const factory = await ethers.getContractAt("PitFactory", deployment.pitFactory);
   const [signer] = await ethers.getSigners();
+
+  const operator = await factory.operator();
+  if (operator.toLowerCase() !== signer.address.toLowerCase()) {
+    // Not an error in a loop: once CRE owns the operator this is the normal state.
+    if (!options.quiet) {
+      console.log(
+        `${signer.address} is not the operator (${operator}) — leaving the board to whoever is.`,
+      );
+    }
+    return { created: 0, existing: 0, spotE8: 0n, stepUsd: 0, operator: null };
+  }
 
   const spotE8 = await fetchSpotE8(label);
   const now = nowSeconds();
@@ -85,5 +100,5 @@ export async function rollWindows(options: RollOptions = {}): Promise<RollResult
     }
   }
 
-  return { created, existing, spotE8, stepUsd };
+  return { created, existing, spotE8, stepUsd, operator };
 }

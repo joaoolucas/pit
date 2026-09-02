@@ -76,7 +76,11 @@ type EvmTarget = {
   rollReceiverAddress: Address;
   /**
    * Gas for a roll report, which is a different animal from a settle report:
-   * every cell deploys two ERC20s and lists two Kuru markets.
+   * every cell deploys two ERC20s and lists two Kuru markets. Sized from a
+   * measured `onReport` of maxOpensPerReport cells (~3.9m each on Hardhat)
+   * plus a quarter of headroom: 20m, well under Monad's 150m block. The mock
+   * book is a full deploy rather than Kuru's proxy, so this is a ceiling on
+   * the listing half.
    */
   rollGasLimit: string;
   /** Columns kept open ahead of the live one. */

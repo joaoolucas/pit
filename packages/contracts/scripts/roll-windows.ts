@@ -6,9 +6,10 @@
 import { rollWindows } from "./tasks/roll";
 
 rollWindows()
-  .then(({ created, existing }) => {
-    console.log(`\n${created} opened, ${existing} already live.`);
-    if (created > 0) console.log("Next: npm run seed — nothing is tradeable until both sides are quoted.");
+  .then((result) => {
+    if (result.operator === null) return;
+    console.log(`\n${result.created} opened, ${result.existing} already live.`);
+    if (result.created > 0) console.log("Next: npm run seed — nothing is tradeable until both sides are quoted.");
   })
   .catch((error) => {
     console.error(error);

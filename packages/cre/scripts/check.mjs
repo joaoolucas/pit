@@ -73,6 +73,31 @@ for (const file of ["config.staging.json", "config.production.json"]) {
     if (!Number.isInteger(target[key]) || target[key] <= 0) fail(`${file}: ${key} must be a positive integer`);
   }
   if (target.ladderRows % 2 === 0) fail(`${file}: ladderRows must be odd — the middle row is the up/down cell`);
+
+  // 150m, measured on testnet and mainnet. A roll report that cannot fit a
+  // block never lands, and the board empties on schedule.
+  const MONAD_BLOCK_GAS = 150_000_000n;
+  for (const key of ["gasLimit", "rollGasLimit"]) {
+    let n = 0n;
+    try {
+      n = BigInt(target[key] ?? "");
+    } catch {
+      n = 0n;
+    }
+    if (n <= 0n) fail(`${file}: ${key} must be a positive integer`);
+  }
+  // 20m is 4 × ~4.0m createWindow plus a quarter of headroom, measured in
+  // PitRollReceiver.test.ts. Going under that is the silent-revert case.
+  const ROLL_GAS_FLOOR = 20_000_000n;
+  const rollGas = BigInt(target.rollGasLimit);
+  if (rollGas < ROLL_GAS_FLOOR) {
+    fail(`${file}: rollGasLimit ${rollGas} is below the measured four-cell report with headroom`);
+  } else if (rollGas >= MONAD_BLOCK_GAS) {
+    fail(`${file}: rollGasLimit ${rollGas} does not fit a Monad block (${MONAD_BLOCK_GAS})`);
+  } else {
+    pass(`${file}: rollGasLimit ${target.rollGasLimit} fits a Monad block`);
+  }
+
   if (zeros.length > 0) {
     console.warn(`  warn  ${file}: ${zeros.join(", ")} still zero — run: npm run sync`);
   } else {

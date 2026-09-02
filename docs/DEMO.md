@@ -134,11 +134,13 @@ npm --prefix packages/indexer run codegen      # needs Linux, macOS or WSL2
 npm --prefix packages/indexer run dev
 ```
 
-Put the roller and seeder on a one-minute cron and the board stays full.
+Until CRE is wired, `TICK_WATCH=1 npm --prefix packages/contracts run tick` keeps
+the board full. After the Forwarder is set, CRE rolls and settles; `tick` only
+seeds — quoting is a participant, not infrastructure.
 
 ---
 
-## The CRE settle
+## The CRE loop
 
 ```bash
 npm --prefix packages/cre run check     # ABI drift, config addresses, price parsing
@@ -152,33 +154,37 @@ npm --prefix packages/cre run simulate
 
 `cre workflow simulate` compiles the workflow to WASM and runs it locally against
 **real** RPCs and the real price endpoint. It makes the actual
-`pendingSettlement` call to Monad testnet, fetches Coinbase spot, and prints the
-report it would have written:
+`pendingSettlement` and `missingWindows` calls to Monad testnet, fetches Coinbase
+spot, and prints the reports it would have written:
 
 ```
 2 window(s) waiting: 14, 15
 BTC-USD reference price: $76,712.44
 Settled 2 window(s) at $76,712.44 — tx 0x…
+Opened 4 cell(s) — tx 0x…
 ```
 
 To make it live, `cre workflow deploy` and `cre workflow activate`, then hand
-settlement over:
+both roles over:
 
 ```solidity
 receiver.setForwarder(<the Forwarder for your DON>);
+roller.setForwarder(<the Forwarder for your DON>);
 factory.setSettler(<PitSettlementReceiver>);
+factory.setOperator(<PitRollReceiver>);
 ```
 
-After that the deploy key cannot settle anything. If the workflow ever goes
-quiet, `voidWindow` lets anyone rescue a window an hour after it closed, and both
-legs redeem at 0.50.
+After that the deploy key cannot settle or open anything. If the workflow ever
+goes quiet, `voidWindow` lets anyone rescue a window an hour after it closed, and
+both legs redeem at 0.50. A missed roll is noisier than a missed settle: the
+board just has no next column until the next report lands.
 
 ---
 
 ## What to run if you only have five minutes
 
 ```bash
-npm run contracts:test                     # 22 tests: issuance, settlement, void, a fill end to end
+npm run contracts:test                     # 35 tests: issuance, settlement, roll, void, a fill end to end
 npm --prefix packages/indexer run check    # config vs. ABIs, then 8 fold tests over a real event sequence
 npm --prefix packages/cre run check        # the workflow's pre-flight
 npm run build                              # the app

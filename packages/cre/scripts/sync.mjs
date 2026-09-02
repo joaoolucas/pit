@@ -33,8 +33,9 @@ console.log(`${configName} -> factory ${target.pitFactoryAddress}, settle ${targ
 
 if (!deployment.creForwarder) {
   console.warn(
-    "\nThe deployment has no CRE Forwarder yet, so PitFactory.settler is still the deploy key.\n" +
+    "\nThe deployment has no CRE Forwarder yet, so settler and operator are still the deploy key.\n" +
       "After `cre workflow deploy`, take the Forwarder address for your DON and run:\n" +
-      `  receiver.setForwarder(<forwarder>)\n  factory.setSettler(${deployment.settlementReceiver})`,
+      `  receiver.setForwarder(<forwarder>)\n  roller.setForwarder(<forwarder>)\n` +
+      `  factory.setSettler(${deployment.settlementReceiver})\n  factory.setOperator(${deployment.rollReceiver})`,
   );
 }

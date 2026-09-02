@@ -6,8 +6,8 @@ derive.**
 
 ```
                        ┌──────────────────────────────────────────────┐
-  roll-windows.ts ────►│  PitFactory                                 │
-  (cron, 1 min)        │                                              │
+  PitRollReceiver ────►│  PitFactory                                 │
+  (CRE, operator)      │                                              │
                        │  createWindow(underlying, start, end, strike)│
                        │    ├─ new OutcomeToken cYES   (ERC-20, 6dp)  │
                        │    ├─ new OutcomeToken cNO    (ERC-20, 6dp)  │
@@ -40,9 +40,10 @@ derive.**
                                                     └────────────────────────┘
 
   Chainlink CRE (cron, 30s)
-     pendingSettlement()  ──── onchain clock
-     GET spot             ──── offchain price, median across the DON
-     report(price, ids[]) ───► Forwarder ──► PitSettlementReceiver ──► settle()
+     GET spot                  ──── offchain price, median across the DON
+     pendingSettlement()       ──── onchain clock
+     report(price, ids[])  ───► Forwarder ──► PitSettlementReceiver ──► settle()
+     missingWindows(...)   ───► Forwarder ──► PitRollReceiver       ──► createWindow()
 ```
 
 ## The data path, and what is not in it
@@ -84,10 +85,11 @@ artifacts so they cannot drift from what was deployed.
 
 ## Trust, and the escape hatch
 
-`settle` is gated on one address. In production that is
-`PitSettlementReceiver`, which only accepts calls from the Chainlink Forwarder.
-The deploy script leaves the settler on the deploy key until a Forwarder address
-exists, so a demo is never blocked on CRE, and flipping it is two calls.
+`settle` is gated on one address and `createWindow` on another. In production
+those are `PitSettlementReceiver` and `PitRollReceiver`, which only accept calls
+from the Chainlink Forwarder. The deploy script leaves both roles on the deploy
+key until a Forwarder address exists, so a demo is never blocked on CRE, and
+flipping them is `setSettler` and `setOperator`.
 
 The safety property that matters is not that the settler is honest — it is that a
 dishonest or absent settler cannot trap money. `voidWindow` is callable by
@@ -119,7 +121,7 @@ bug farm.
 | ---------------- | ------------------------------------------------------------------------------ |
 | Kuru             | there is no book. Every price in the UI is a level someone posted on Kuru.      |
 | Envio            | there is no book *visible*. The grid is a query over derived entities.          |
-| Chainlink CRE    | there is no trustworthy settle. The clock is onchain, the price is not.         |
+| Chainlink CRE    | there is no trustworthy settle, and nobody opening the next column. The clock is onchain, the price is not. |
 | Mera / PRF       | notes are either plaintext on a server or trapped on one device.                |
 | Monad            | a five-minute CLOB of binaries is fiction. 112 books quoted and requoted every minute needs 400ms blocks and cheap gas. |
 
@@ -129,6 +131,7 @@ bug farm.
 | ----------------------------------- | -------------------------------------------------- |
 | issuance, settlement, void, redeem  | `packages/contracts/test/PitFactory.test.ts`      |
 | the CRE receiver and batch settle   | `packages/contracts/test/PitSettlementReceiver.test.ts` |
+| the CRE roller and missingWindows   | `packages/contracts/test/PitRollReceiver.test.ts`      |
 | the fold arithmetic                 | `packages/indexer/test/folds.test.ts`              |
 | config vs. the real ABIs            | `packages/indexer/scripts/validate.mjs`            |
 | workflow ABI drift + price parsing  | `packages/cre/scripts/check.mjs`                   |

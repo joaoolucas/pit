@@ -64,8 +64,8 @@ Design decisions and what was rejected: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ```
                     ┌──────────────────────────────────────────┐
-   roll-windows ───►│ PitFactory                              │
-   (cron, 1 min)    │  createWindow(BTC-USD, endTs, strike)    │
+   CRE roller   ───►│ PitFactory                              │
+   (PitRollReceiver)│  createWindow(BTC-USD, endTs, strike)    │
                     │    ├─ mints cYES / cNO (ERC-20, 6 dec)   │
                     │    └─ Router.deployProxy ×2 ──────────┐  │
                     └──────────────────────────────────────┼──┘
@@ -88,8 +88,8 @@ Design decisions and what was rejected: [`docs/DESIGN.md`](docs/DESIGN.md).
                                                           ▼
                                                     the grid you see
 
-   Chainlink CRE ── price API + onchain clock ──► PitSettlementReceiver
-   (cron, 30s)                                     └─► PitFactory.settle
+   Chainlink CRE ── price API + onchain clock ──► PitSettlementReceiver ─► settle
+   (cron, 30s)                                └─► PitRollReceiver       ─► createWindow
 ```
 
 **The economics fit in four lines.** `mintSet(id, n)` locks `n` USDC and returns
@@ -135,14 +135,19 @@ covered by tests that replay a real event sequence. See
 
 A five-minute binary needs two facts from different places: **when** the window
 closed (onchain) and **what the price was** (not). CRE is the only thing that can
-hold both inside one attested execution. Every 30 seconds the workflow reads
-`PitFactory.pendingSettlement`, fetches the reference price once per DON node,
-takes the median, and writes **one** report covering every window that closed —
-seven strikes close at the same instant, so a column costs one report, not seven.
+hold both inside one attested execution — and rolling the next column needs
+exactly those two, because the strike ladder is anchored to spot. Every 30
+seconds the workflow fetches the reference price once per DON node, takes the
+median, and writes two reports against it: one to `PitSettlementReceiver` for
+every window that closed, and one to `PitRollReceiver` for every missing cell of
+the next columns. They are two reports on purpose. Opening a cell deploys two
+ERC20s and lists two Kuru markets; settling writes a word. One report would put
+settlement, where somebody's money is waiting, behind the most expensive write
+in the system under a single gas limit.
 
-`PitSettlementReceiver` is the onchain half: ERC-165 `IReceiver`, gated on the
-Forwarder, settling each window in a `try/catch` so one already-resolved window
-cannot sink the batch. See [`packages/cre/README.md`](packages/cre/README.md).
+Both receivers are ERC-165 `IReceiver`, gated on the Forwarder, and loop in a
+`try/catch` so one already-done cell cannot sink the batch. See
+[`packages/cre/README.md`](packages/cre/README.md).
 
 ### Mera — one passkey, many keys, and *not* the wallet
 
@@ -211,16 +216,21 @@ codegen && envio dev`, which needs Linux, macOS or WSL2.
 
 ```bash
 # fund DEPLOYER_PRIVATE_KEY at https://faucet.monad.xyz, then
-npm run deploy:testnet        # PitFactory + PitSettlementReceiver + faucet USDC
-TICK_WATCH=1 npm --prefix packages/contracts run tick   # settle + roll + seed, every minute
+npm run deploy:testnet        # PitFactory + both CRE receivers + faucet USDC
+npm --prefix packages/cre run sync && npm --prefix packages/cre run simulate
 
 npm --prefix packages/indexer run sync && npm --prefix packages/indexer run codegen
-npm --prefix packages/cre run sync && npm --prefix packages/cre run simulate
+
+# seeder. CRE settles and rolls once the Forwarder is wired; until then the
+# deploy key keeps both roles and tick still does all three.
+TICK_WATCH=1 npm --prefix packages/contracts run tick
 ```
 
-In production `tick` is a one-minute cron entry. Once `setSettler` points at the
-CRE receiver, its settle stage reports "not the settler" and does nothing — which
-is the correct steady state.
+In production the board has no operator: CRE settles closed windows and opens
+the next columns from the same price, every 30 seconds. `tick` is the seeder —
+quoting is a participant, not infrastructure — and once `setSettler` /
+`setOperator` point at the receivers, its first two stages report that CRE owns
+them and do nothing, which is the correct steady state.
 
 ---
 
@@ -286,16 +296,16 @@ Where this is being submitted, and which bounties it does and does not fit:
 
 | Path                 | What is in it                                                                    |
 | -------------------- | -------------------------------------------------------------------------------- |
-| `packages/contracts` | `PitFactory`, `OutcomeToken`, `PitSettlementReceiver`, and the deploy/roll/seed/fill scripts |
+| `packages/contracts` | `PitFactory`, `OutcomeToken`, `PitSettlementReceiver`, `PitRollReceiver`, and the deploy/seed/fill scripts |
 | `packages/core`      | the one definition of a cell: window math, the strike ladder, Kuru tick conversions |
 | `packages/indexer`   | Envio HyperIndex — `config.yaml`, `schema.graphql`, handlers, folds, tests        |
-| `packages/cre`       | the Chainlink CRE settlement workflow                                            |
+| `packages/cre`       | the Chainlink CRE workflow that settles and rolls the board                      |
 | `apps/web`           | the board, the cell panel, the take/make ticket, the passkey notes               |
 | `docs`               | design, architecture, liquidity, the demo runbook, CRE and passkey notes         |
 
 ```bash
-npm test                   # 63 tests, no chain and no keys needed
-npm run contracts:test     # 22 of them: issuance, settlement, void, an end-to-end fill
+npm test                   # 76 tests, no chain and no keys needed
+npm run contracts:test     # 35 of them: issuance, settlement, roll, void, an end-to-end fill
 npm --prefix packages/indexer run check   # config vs. ABIs, then 8 fold tests
 npm --prefix packages/cre run check       # ABI drift, config addresses, price parsing
 npm run build              # the app

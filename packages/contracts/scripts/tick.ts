@@ -19,9 +19,11 @@
  *   npm run tick:local                    one pass
  *   TICK_WATCH=1 npm run tick:local       every 60s until you stop it
  *
- * In production this is a cron entry, and settlement belongs to CRE — once
- * `setSettler` points at the receiver, stage 1 reports "not the settler" and
- * does nothing, which is the correct steady state.
+ * In production settlement and rolling belong to CRE. Once `setSettler` and
+ * `setOperator` point at the receivers, stage 1 reports "not the settler" and
+ * stage 2 reports "CRE owns the operator", and both do nothing — which is the
+ * correct steady state. Seeding still runs: quoting is a participant, not
+ * infrastructure.
  */
 import { network } from "hardhat";
 
@@ -50,10 +52,14 @@ async function tick(pass: number) {
 
   let spot = "";
   try {
-    const { created, existing, spotE8, stepUsd } = await rollWindows({ quiet: true });
-    spot = `$${usd(spotE8)} / $${stepUsd} rows`;
-    if (created > 0) parts.push(`opened ${created}`);
-    parts.push(`${existing + created} cells`);
+    const rolled = await rollWindows({ quiet: true });
+    if (rolled.operator === null) {
+      parts.push("roll: CRE owns the operator");
+    } else {
+      spot = `$${usd(rolled.spotE8)} / $${rolled.stepUsd} rows`;
+      if (rolled.created > 0) parts.push(`opened ${rolled.created}`);
+      parts.push(`${rolled.existing + rolled.created} cells`);
+    }
   } catch (error) {
     parts.push(`roll error: ${(error as Error).message.slice(0, 60)}`);
   }

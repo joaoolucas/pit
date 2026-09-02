@@ -75,7 +75,7 @@ contract PitSettlementReceiver is IReceiver, Ownable2Step {
     /// @dev `metadata` carries the workflow id, owner and name. It is unused here:
     ///      the Forwarder is the trust boundary, and rotating `forwarder` is how a
     ///      workflow is swapped. Pinning the workflow id in this contract too is the
-    ///      obvious next hardening step and is noted in docs/CRE.md.
+    ///      obvious next hardening step and is noted in packages/cre/README.md.
     function onReport(bytes calldata, bytes calldata report) external {
         if (msg.sender != forwarder) revert NotForwarder();
 
