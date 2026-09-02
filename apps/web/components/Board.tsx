@@ -17,10 +17,10 @@ import {
 } from "@pit/core";
 import type { BoardCell } from "./types";
 
-/** Rows never get thinner than this, however many strikes are on the board. */
-const MIN_ROW_HEIGHT = 52;
+/** Rows never get thinner than this — the multiple is the headline, so it needs room. */
+const MIN_ROW_HEIGHT = 72;
 /** The strike axis, on the right, where a chart puts its price scale. */
-const AXIS_WIDTH = 82;
+const AXIS_WIDTH = 92;
 /** Minutes of realised price kept to the left of now. */
 const TRACE_MINUTES = 30;
 /**
@@ -31,7 +31,9 @@ const TRACE_MINUTES = 30;
  * the body use this constant, which is the only thing keeping their columns
  * lined up.
  */
-const TRACE_WIDTH = "31%";
+const TRACE_WIDTH = "28%";
+/** Gap between balloons. Shared by the head row and the body so they line up. */
+const BOARD_GAP = 6;
 
 export const cellId = (endTs: number, strikeE8: bigint) => `${endTs}:${strikeE8}`;
 
@@ -104,27 +106,33 @@ export function Board({
 
   if (columns.length === 0 || strikes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
-        <p className="text-[13px] text-[var(--color-foam-dim)]">{t("board.empty")}</p>
-        <p className="label max-w-xs leading-relaxed">{t("board.emptyHint")}</p>
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-center">
+        <BalloonCluster />
+        <p className="readout text-[22px] text-[var(--color-foam)]">{t("board.empty")}</p>
+        <p className="max-w-xs text-[13px] leading-relaxed text-[var(--color-foam-faint)]">
+          {t("board.emptyHint")}
+        </p>
       </div>
     );
   }
 
-  const chainTemplate = `repeat(${columns.length}, minmax(62px, 1fr)) ${AXIS_WIDTH}px`;
+  const chainTemplate = `repeat(${columns.length}, minmax(78px, 1fr)) ${AXIS_WIDTH}px`;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Heads: the clock, which is the other half of every market here. */}
-      <div className="flex shrink-0 border-b rule">
+      <div className="flex shrink-0 px-1.5 pt-2">
         <div
-          className="flex min-w-0 shrink-0 items-end justify-between px-3 pb-1.5 pt-2"
+          className="flex min-w-0 shrink-0 items-end justify-between px-3 pb-2"
           style={{ width: TRACE_WIDTH }}
         >
           <span className="label">{t("board.realised", { minutes: TRACE_MINUTES })}</span>
           <span className="label hidden sm:inline">{t("board.now")}</span>
         </div>
-        <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: chainTemplate }}>
+        <div
+          className="grid min-w-0 flex-1"
+          style={{ gridTemplateColumns: chainTemplate, gap: BOARD_GAP }}
+        >
           {columns.map((endTs, index) => (
             <ColumnHead
               key={endTs}
@@ -134,14 +142,14 @@ export function Board({
               index={index}
             />
           ))}
-          <div className="flex items-end justify-end px-2 pb-1.5">
+          <div className="flex items-end justify-end px-2 pb-2">
             <span className="label">{t("board.strike")}</span>
           </div>
         </div>
       </div>
 
       {/* Body: the trace on the left, the chain on the right, sharing rows. */}
-      <div ref={bodyRef} className="flex min-h-0 flex-1 overflow-y-auto">
+      <div ref={bodyRef} className="flex min-h-0 flex-1 overflow-y-auto px-1.5 pb-1">
         <Trace
           candles={candles}
           strikes={strikes}
@@ -150,7 +158,10 @@ export function Board({
           spotAt={spotAt}
         />
 
-        <div className="grid min-w-0 flex-1 content-start" style={{ gridTemplateColumns: chainTemplate }}>
+        <div
+          className="grid min-w-0 flex-1 content-start"
+          style={{ gridTemplateColumns: chainTemplate, gap: BOARD_GAP, rowGap: BOARD_GAP }}
+        >
           {strikes.map((strikeE8, row) => {
             const atm = spotAt?.on === "ladder" && Math.floor(spotAt.offset) === row;
             return (
@@ -201,8 +212,8 @@ function ColumnHead({
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-0.5 border-l rule px-1 pb-1.5 pt-2 ${
-        live ? "bg-[var(--color-hull)]" : ""
+      className={`relative flex flex-col items-center gap-0.5 rounded-[18px] px-1 pb-2 pt-1.5 ${
+        live ? "bg-[color-mix(in_oklab,var(--color-live)_14%,transparent)]" : ""
       }`}
     >
       <span className="data text-[11px] text-[var(--color-foam-dim)]">
@@ -212,13 +223,13 @@ function ColumnHead({
         })}
       </span>
       <span
-        className="readout text-[10px] font-medium"
+        className="readout text-[13px] leading-none"
         style={{
           color: closed
             ? "var(--color-foam-faint)"
             : urgent
               ? "var(--color-live)"
-              : "var(--color-foam-faint)",
+              : "var(--color-foam)",
         }}
       >
         {closed ? t("board.closed") : formatClock(remaining)}
@@ -226,9 +237,13 @@ function ColumnHead({
       {live && (
         <span
           aria-hidden
-          className="absolute bottom-0 left-0 h-[2px] bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
-          style={{ width: `${(elapsed * 100).toFixed(1)}%` }}
-        />
+          className="absolute bottom-1 left-2 right-2 h-[5px] overflow-hidden rounded-full bg-[var(--color-rule)]"
+        >
+          <span
+            className="block h-full rounded-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
+            style={{ width: `${(elapsed * 100).toFixed(1)}%` }}
+          />
+        </span>
       )}
     </div>
   );
@@ -281,20 +296,20 @@ function StrikeRow({
       {/* The strike axis. The spot badge rides the at-the-money row, so the
           number every other strike is judged against is never a glance away. */}
       <div
-        className={`relative flex items-center justify-end gap-2 border-b border-l rule px-2 ${
+        className={`relative flex items-center justify-end gap-2 rounded-[18px] px-2 ${
           atm ? "atm" : ""
         }`}
         style={{ height: rowHeight }}
       >
         {spotE8 !== null && (
           <span
-            className="readout rounded-[2px] bg-[var(--color-trace)] px-1 py-[1px] text-[9px] font-semibold text-[var(--color-deep)]"
+            className="readout rounded-full bg-[var(--color-trace)] px-2 py-0.5 text-[11px] text-[var(--color-deep)] shadow-[0_3px_0_rgba(20,8,28,0.25)]"
             title={t("board.spot")}
           >
             {e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
           </span>
         )}
-        <span className="data text-[11px] text-[var(--color-foam-dim)]">
+        <span className="readout text-[13px] text-[var(--color-foam-dim)]">
           {e8ToUsd(strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
         </span>
       </div>
@@ -306,10 +321,10 @@ function StrikeRow({
 function fillFor(ink: TileInk): string {
   if (ink.side === "none" || ink.presence === 0) return "transparent";
   const hue = `color-mix(in oklab, var(--color-${ink.side}) ${(
-    35 +
-    ink.conviction * 65
-  ).toFixed(0)}%, var(--color-foam-faint))`;
-  const alpha = (5 + ink.presence * 24).toFixed(1);
+    55 +
+    ink.conviction * 45
+  ).toFixed(0)}%, white)`;
+  const alpha = (42 + ink.presence * 48).toFixed(1);
   return `color-mix(in oklab, ${hue} ${alpha}%, transparent)`;
 }
 
@@ -337,7 +352,7 @@ function Tile({
   if (!cell) {
     return (
       <div
-        className={`border-b border-l rule ${atm ? "atm" : ""}`}
+        className={`rounded-[22px] ${atm ? "atm" : ""}`}
         style={{ height: rowHeight }}
       />
     );
@@ -353,7 +368,7 @@ function Tile({
       onClick={() => onSelect(cell)}
       data-selected={selected}
       data-empty={ink.presence === 0}
-      className={`tile sweep flex flex-col items-center justify-center gap-[3px] border-b border-l rule ${
+      className={`tile sweep flex flex-col items-center justify-center gap-1 ${
         atm ? "atm" : ""
       }`}
       style={
@@ -374,20 +389,20 @@ function Tile({
         <span
           aria-label={t("board.settling")}
           title={t("board.settling")}
-          className="inline-block size-1.5 rounded-full bg-[var(--color-live)]"
+          className="orb inline-block size-2.5 bg-[var(--color-live)]"
         />
       ) : cents === null ? (
         <span className="text-[13px] leading-none text-[var(--color-foam-faint)]">–</span>
       ) : (
         <>
           <span
-            className="readout text-[15px] font-semibold leading-none"
+            className="readout text-[22px] leading-none sm:text-[24px]"
             style={{ color: `var(--color-${ink.side === "no" ? "no" : "yes"})` }}
           >
             {formatMultiple(cents)}
           </span>
           {/* What it costs. How deep it is, the paint already said. */}
-          <span className="data text-[10px] leading-none text-[var(--color-foam-dim)] opacity-80">
+          <span className="data text-[11px] leading-none text-[var(--color-foam-dim)]">
             {formatCents(cents)}
           </span>
         </>
@@ -406,7 +421,7 @@ function Resolved({ outcome }: { outcome: Outcome }) {
         : [t("board.void"), "var(--color-foam-faint)"];
 
   return (
-    <span className="readout text-[11px] font-semibold tracking-wide" style={{ color: colour }}>
+    <span className="readout text-[16px] tracking-wide" style={{ color: colour }}>
       {text}
     </span>
   );
@@ -559,7 +574,7 @@ function Trace({
             points={points}
             fill="none"
             stroke="url(#wake)"
-            strokeWidth={1.5}
+            strokeWidth={2.4}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -567,35 +582,45 @@ function Trace({
 
         {/* Now. */}
         {spotAt?.on === "ladder" && width > 0 && (
-          <circle cx={width - 1} cy={spotAt.offset * rowHeight} r={3} fill="var(--color-trace)" />
+          <circle cx={width - 1} cy={spotAt.offset * rowHeight} r={5} fill="var(--color-trace)" />
         )}
       </svg>
     </div>
   );
 }
 
+export function BalloonCluster() {
+  return (
+    <span aria-hidden className="mb-1 flex items-end gap-1.5">
+      <span className="orb floaty size-7 bg-[var(--color-yes)]" style={{ animationDelay: "0s" }} />
+      <span className="orb floaty size-10 bg-[var(--color-live)]" style={{ animationDelay: "0.4s" }} />
+      <span className="orb floaty size-6 bg-[var(--color-no)]" style={{ animationDelay: "0.8s" }} />
+    </span>
+  );
+}
+
 function Legend() {
   const { t } = useI18n();
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t rule px-3 py-1.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2">
       <span className="label">{t("board.legendPay")}</span>
       <span className="flex items-center gap-1.5">
         <span
           aria-hidden
-          className="inline-block h-2.5 w-6 rounded-[1px]"
+          className="orb inline-block h-3 w-7"
           style={{
             background:
-              "linear-gradient(90deg, color-mix(in oklab, var(--color-yes) 60%, transparent) 0%, transparent 100%)",
+              "linear-gradient(90deg, color-mix(in oklab, var(--color-yes) 70%, white) 0%, color-mix(in oklab, var(--color-no) 55%, white) 100%)",
           }}
         />
         <span className="label">{t("board.legendDepth")}</span>
       </span>
       <span className="flex items-center gap-1.5">
-        <span aria-hidden className="inline-block h-2.5 w-6 rounded-[1px] border rule" />
+        <span aria-hidden className="inline-block h-3 w-7 rounded-full border-2 rule" />
         <span className="label">{t("board.legendHollow")}</span>
       </span>
       <span className="flex items-center gap-1.5">
-        <span aria-hidden className="inline-block h-[2px] w-6 bg-[var(--color-trace)]" />
+        <span aria-hidden className="inline-block h-[3px] w-7 rounded-full bg-[var(--color-trace)]" />
         <span className="label">{t("board.legendTrace")}</span>
       </span>
     </div>

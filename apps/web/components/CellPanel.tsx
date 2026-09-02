@@ -111,10 +111,10 @@ export function CellPanel({
   const cellKey = makeCellKey({ underlying: UNDERLYING, endTs: cell.endTs, strikeE8: cell.strikeE8 });
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l rule bg-[var(--color-hull)]">
-      <header className="shrink-0 border-b rule">
-        <div className="px-4 pb-3 pt-3.5">
-          <h2 className="mb-1 text-[13px] font-semibold leading-snug">
+    <aside className="panel flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] shadow-[0_8px_0_rgba(20,8,28,0.28)]">
+      <header className="shrink-0">
+        <div className="px-4 pb-3 pt-4">
+          <h2 className="mb-1 text-[15px] font-extrabold leading-snug">
             {t("cell.claim", {
               strike: `$${e8ToUsd(cell.strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
             })}
@@ -144,9 +144,9 @@ export function CellPanel({
         </div>
 
         {!settled && (
-          <div className="h-[2px] w-full bg-[var(--color-rule)]">
+          <div className="mx-4 h-[6px] overflow-hidden rounded-full bg-[var(--color-rule)]">
             <div
-              className="h-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
+              className="h-full rounded-full bg-[var(--color-live)] transition-[width] duration-1000 ease-linear"
               style={{ width: `${(elapsed * 100).toFixed(1)}%` }}
             />
           </div>
@@ -156,7 +156,7 @@ export function CellPanel({
             YES, the strike, NO — in that order, because the point of putting
             them on one line is that the two prices are two halves of one
             dollar and the strike is what they are halves of. */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch border-t rule">
+        <div className="mx-2 mt-3 grid grid-cols-[1fr_auto_1fr] items-stretch gap-1">
           <LegPrice
             side="yes"
             quote={quotes.yes}
@@ -165,9 +165,9 @@ export function CellPanel({
             onPick={() => setSide("yes")}
           />
 
-          <div className="flex flex-col items-center justify-center border-x rule px-3.5 py-2.5">
+          <div className="flex flex-col items-center justify-center px-3 py-2.5">
             <span className="label">{t("board.strike")}</span>
-            <span className="data text-[12px] text-[var(--color-foam-dim)]">
+            <span className="readout text-[16px] text-[var(--color-foam)]">
               {e8ToUsd(cell.strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
           </div>
@@ -184,17 +184,16 @@ export function CellPanel({
         {pair && <PairLine {...pair} />}
       </header>
 
-      <nav className="flex shrink-0 border-b rule">
+      <nav className="mx-3 mt-2 flex shrink-0 gap-1 rounded-full bg-[var(--color-deep)] p-1">
         {(["book", "tape", "flow", "notes"] as const).map((option) => (
           <button
             key={option}
             type="button"
             onClick={() => setTab(option)}
-            className="flex-1 py-2 text-[11px] font-medium uppercase tracking-[0.09em]"
+            className="flex-1 rounded-full py-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em]"
             style={{
-              color: tab === option ? "var(--color-foam)" : "var(--color-foam-faint)",
-              borderBottom: tab === option ? "1px solid var(--color-trace)" : "1px solid transparent",
-              marginBottom: -1,
+              color: tab === option ? "var(--color-deep)" : "var(--color-foam-faint)",
+              background: tab === option ? "var(--color-live)" : "transparent",
             }}
           >
             {t(`cell.${option}` as const)}
@@ -233,7 +232,7 @@ export function CellPanel({
         {tab === "notes" && <Notes cellKey={cellKey} />}
       </div>
 
-      <div className="shrink-0 border-t rule">
+      <div className="shrink-0">
         <Ticket
           windowId={cell.windowId}
           outcome={cell.outcome}
@@ -273,7 +272,7 @@ function PairLine({ yes, no, sum, edge }: { yes: number; no: number; sum: number
 
   return (
     <div
-      className="flex items-baseline justify-between gap-3 border-t rule px-4 py-1.5"
+      className="mx-3 mt-2 flex items-baseline justify-between gap-3 rounded-full px-3 py-1.5"
       style={{
         background: arb ? "color-mix(in oklab, var(--color-yes) 12%, transparent)" : "transparent",
       }}
@@ -320,18 +319,19 @@ function LegPrice({
     <button
       type="button"
       onClick={onPick}
-      className={`flex flex-col gap-0.5 px-4 py-2.5 ${align === "end" ? "items-end" : "items-start"}`}
+      className={`flex flex-col gap-0.5 rounded-[22px] px-4 py-2.5 ${align === "end" ? "items-end" : "items-start"}`}
       style={{
         background: active
-          ? `color-mix(in oklab, var(--color-${side}) 10%, transparent)`
+          ? `color-mix(in oklab, var(--color-${side}) 18%, transparent)`
           : "transparent",
+        boxShadow: active ? "inset 0 1px 0 rgba(255,244,232,0.25)" : undefined,
       }}
     >
       <span className="label" style={{ color: active ? `var(--color-${side})` : undefined }}>
         {t(`ticket.${side}` as const)}
       </span>
       <span
-        className="readout text-[21px] font-semibold leading-none"
+        className="readout text-[28px] leading-none"
         style={{ color: active ? `var(--color-${side})` : "var(--color-foam-dim)" }}
       >
         {price == null ? "—" : formatCents(price)}

@@ -119,7 +119,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
             type="button"
             onClick={() => void open("unlock")}
             disabled={busy !== null}
-            className="flex-1 rounded border border-[var(--color-rule-bright)] py-1.5 text-[11px] hover:border-[var(--color-trace)] disabled:opacity-50"
+            className="btn-outline flex-1 py-1.5 text-[11px] disabled:opacity-50"
           >
             {busy === "unlock" ? t("notes.unlocking") : t("notes.unlock")}
           </button>
@@ -127,7 +127,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
             type="button"
             onClick={() => void open("enroll")}
             disabled={busy !== null}
-            className="rounded border rule px-3 py-1.5 text-[11px] text-[var(--color-foam-dim)] hover:border-[var(--color-rule-bright)] disabled:opacity-50"
+            className="btn-outline px-3 py-1.5 text-[11px] disabled:opacity-50"
           >
             {busy === "enroll" ? t("notes.unlocking") : t("notes.enroll")}
           </button>
@@ -164,7 +164,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
         }}
         placeholder={t("notes.placeholder")}
         rows={5}
-        className="w-full resize-y rounded border rule bg-[var(--color-deep)] px-2 py-1.5 text-[12px] leading-relaxed outline-none focus:border-[var(--color-rule-bright)]"
+        className="w-full resize-y rounded-[18px] border-2 rule bg-[var(--color-deep)] px-3 py-2 text-[12px] leading-relaxed outline-none focus:border-[var(--color-rule-bright)]"
       />
 
       <div className="flex items-center justify-between">
@@ -173,7 +173,7 @@ export function Notes({ cellKey }: { cellKey: string }) {
           type="button"
           onClick={() => void save()}
           disabled={busy !== null || !dirty}
-          className="rounded border border-[var(--color-rule-bright)] px-3 py-1 text-[11px] hover:border-[var(--color-trace)] disabled:opacity-40"
+          className="btn-outline px-3 py-1 text-[11px] disabled:opacity-40"
         >
           {busy === "save" ? t("notes.saving") : t("notes.save")}
         </button>

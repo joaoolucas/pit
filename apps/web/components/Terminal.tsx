@@ -6,7 +6,7 @@ import { GRID_POLL_MS, UNDERLYING } from "@/lib/config";
 import { useI18n } from "@/lib/i18n";
 import { GRID_QUERY, usePolledQuery, type RawCellState } from "@/lib/indexer";
 import { useCandles, useNow, useSpot } from "@/lib/usePrice";
-import { Board, cellId } from "./Board";
+import { BalloonCluster, Board, cellId } from "./Board";
 import { CellPanel } from "./CellPanel";
 import { Header } from "./Header";
 import { RiskDialog, useRiskGate } from "./RiskGate";
@@ -143,7 +143,7 @@ export function Terminal() {
         onOpenRisk={risk.show}
       />
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_352px]">
+      <main className="grid min-h-0 flex-1 grid-cols-1 p-2 pt-2 lg:grid-cols-[1fr_360px] lg:gap-2">
         <section className="min-h-0 overflow-hidden">
           {error && !data ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
@@ -175,9 +175,12 @@ export function Terminal() {
         {selected ? (
           <CellPanel cell={selected} now={now} onRequireRisk={risk.require} />
         ) : (
-          <aside className="hidden flex-col items-center justify-center gap-2 border-l rule bg-[var(--color-hull)] p-10 text-center lg:flex">
-            <p className="text-[13px] text-[var(--color-foam-dim)]">{t("cell.select")}</p>
-            <p className="label max-w-[15rem] leading-relaxed">{t("cell.selectHint")}</p>
+          <aside className="panel hidden flex-col items-center justify-center gap-3 rounded-[28px] p-10 text-center shadow-[0_8px_0_rgba(20,8,28,0.28)] lg:flex">
+            <BalloonCluster />
+            <p className="readout text-[22px] text-[var(--color-foam)]">{t("cell.select")}</p>
+            <p className="max-w-[15rem] text-[13px] leading-relaxed text-[var(--color-foam-faint)]">
+              {t("cell.selectHint")}
+            </p>
           </aside>
         )}
       </main>

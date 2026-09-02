@@ -1,59 +1,50 @@
 @import "tailwindcss";
 
 /*
- * Pit — "sounding"
+ * Pit — "balloons"
  * ---------------------------------------------------------------------------
- * The board is an option chain: strikes down one axis, expiries across the
- * other. That instrument is a century old and every derivatives trader reads it
- * without being taught. Nobody had built one for five-minute binaries because
- * the windows expired faster than the chain could be quoted.
+ * The board is still an option chain: strikes down one axis, expiries across
+ * the other, a payout multiple in every cell. That layout is the product, and
+ * it is the same shape Grid Arena and every derivatives trader already reads.
  *
- * Two ideas hold the visual language together.
- *
- * Depth is the material. A cell's hue is where the book prices it on a
- * diverging scale anchored at 50 cents; its fill *intensity* is how much size is
- * actually resting there. A cell nobody is quoting is drawn hollow — an outline,
- * not a tile. A board that is half hollow looks broken to a designer and reads
- * perfectly to a trader, because it is the one thing a payout tile can never
- * tell you: where you can actually trade.
- *
- * The ground is water, not black. #08151C is a dark blue-green, the colour of a
- * depth sounder, and it is the reason the mint and rose sit quietly instead of
- * vibrating the way neon does on neutral black. "Depth" is the word for both
- * things on this screen.
+ * The skin is not. Crypto terminals reach for cold black and hairline grids.
+ * Pit is a night carnival: warm dusk, pastel balloons, letters you can see
+ * across the room. Depth is still the material — a quoted cell is a filled
+ * balloon, an empty one is just the outline — but the paint is candy, not a
+ * sonar.
  */
 
 @theme {
-  /* Ground: a water column, darkest at the edges. */
-  --color-deep: #08151c;
-  --color-hull: #0c1c25;
-  --color-raised: #112832;
-  --color-rule: #1a3541;
-  --color-rule-bright: #27505f;
+  /* Ground: dusk, not water. Warm enough that mint and strawberry sit on it
+     like balloons, not neon. */
+  --color-deep: #1a1224;
+  --color-hull: #24182f;
+  --color-raised: #2f223c;
+  --color-rule: #3d314c;
+  --color-rule-bright: #5a4a6e;
 
-  /* Type. Cool white, because the ground is cool. */
-  --color-foam: #e8f3f5;
-  --color-foam-dim: #93aeb7;
-  --color-foam-faint: #4d6b77;
+  /* Type. Warm cream, because the ground is warm. */
+  --color-foam: #fff4e8;
+  --color-foam-dim: #cbb8c4;
+  --color-foam-faint: #7e6c88;
 
-  /* The diverging probability scale. Mint is yes, rose is no, and they meet at
-     an even market — so a 52 and a 94 are never the same shade. */
-  --color-yes: #34e0a1;
-  --color-yes-deep: #0f4335;
-  --color-no: #ff5c7a;
-  --color-no-deep: #4a1a28;
+  /* Pastel balloons. Mix with white in the tiles so a 52 and a 94 are never
+     the same shade — same diverging scale, softer pigments. */
+  --color-yes: #7dffb3;
+  --color-yes-deep: #1b4d38;
+  --color-no: #ff8fab;
+  --color-no-deep: #5a2234;
 
-  /* Time running out. The only warm colour on the screen, so it cannot be
-     mistaken for a side. */
-  --color-live: #ffc24b;
+  /* Time running out. Lemon, the only warm spotlight. */
+  --color-live: #ffe07a;
 
-  /* The price trace. Pale sounder blue — never green or red, so the price is
-     never confused with a position. */
-  --color-trace: #7fdbff;
+  /* The price. Sky, never green or red. */
+  --color-trace: #9fd4ff;
 
-  --font-display: var(--font-martian), ui-monospace, monospace;
+  --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
+  --font-mark: var(--font-bagel), var(--font-fredoka), ui-rounded, system-ui, sans-serif;
   --font-data: var(--font-plex-mono), ui-monospace, monospace;
-  --font-label: var(--font-plex-condensed), ui-sans-serif, system-ui, sans-serif;
+  --font-label: var(--font-nunito), ui-rounded, system-ui, sans-serif;
 }
 
 html {
@@ -67,36 +58,45 @@ body {
   color: var(--color-foam);
   font-family: var(--font-label);
   -webkit-font-smoothing: antialiased;
-  /* The water column: light falls off toward the edges. */
+  /* Four balloons of light, sitting in the dusk. */
   background:
-    radial-gradient(120% 80% at 50% 0%, #0e2632 0%, transparent 60%),
+    radial-gradient(ellipse 42% 36% at 8% 0%, color-mix(in oklab, var(--color-yes) 22%, transparent), transparent 62%),
+    radial-gradient(ellipse 38% 34% at 92% 4%, color-mix(in oklab, var(--color-no) 20%, transparent), transparent 58%),
+    radial-gradient(ellipse 36% 32% at 78% 96%, color-mix(in oklab, var(--color-live) 16%, transparent), transparent 55%),
+    radial-gradient(ellipse 32% 28% at 16% 90%, color-mix(in oklab, var(--color-trace) 14%, transparent), transparent 52%),
     var(--color-deep);
 }
 
 /* ------------------------------------------------------------------ type --- */
 
-/* Every number on this screen. Tabular so a column of prices is a column and a
-   changing digit never shifts the row. */
 .data {
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-/* The few numbers that carry the decision: the multiple on a tile, spot, the
-   clock. Martian Mono is wide and engineered, so it is used sparingly and never
-   inside a table. */
+/* The numbers that carry a decision: the multiple, spot, the clock, to-win.
+   Fredoka is fat and round — letras cavalares — and used only here. */
 .readout {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.mark {
+  font-family: var(--font-mark);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
 }
 
 .label {
   font-family: var(--font-label);
   font-size: 10px;
+  font-weight: 800;
   line-height: 1.2;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-foam-faint);
 }
@@ -108,87 +108,116 @@ body {
 }
 
 /*
- * A tile. `--fill` is set per cell from (probability, depth): the hue says what
- * the book believes, the alpha says how much is behind it.
+ * A tile is a balloon. `--fill` is (probability, depth): hue is the side,
+ * intensity is how much is resting. Nobody quoting → outline only.
  */
 .tile {
   position: relative;
   isolation: isolate;
+  border-radius: 22px;
   background: var(--fill, transparent);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 244, 232, 0.38),
+    inset 0 -10px 14px rgba(20, 8, 28, 0.16),
+    0 5px 0 rgba(20, 8, 28, 0.22);
   transition:
-    box-shadow 120ms ease,
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 160ms ease,
     background-color 200ms ease;
 }
 
 .tile:hover:not([data-empty="true"]) {
-  box-shadow: inset 0 0 0 1px var(--color-rule-bright);
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
+    inset 0 -8px 12px rgba(20, 8, 28, 0.12),
+    0 9px 0 rgba(20, 8, 28, 0.18),
+    0 18px 28px rgba(20, 8, 28, 0.22);
 }
 
 .tile[data-selected="true"] {
-  box-shadow: inset 0 0 0 1px var(--color-trace);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
+    0 0 0 3px var(--color-live),
+    0 7px 0 rgba(20, 8, 28, 0.2);
   z-index: 1;
 }
 
 .tile:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--color-trace);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
+    0 0 0 3px var(--color-trace),
+    0 7px 0 rgba(20, 8, 28, 0.2);
   z-index: 2;
 }
 
-/* Nothing resting here. Left hollow on purpose — see the note at the top. */
 .tile[data-empty="true"] {
   background: transparent;
+  box-shadow: inset 0 0 0 2px var(--color-rule);
 }
 
-/* The at-the-money row: the "up/down" cell, and the one every other strike is
-   read against. */
+.tile[data-empty="true"]:hover {
+  box-shadow: inset 0 0 0 2px var(--color-rule-bright);
+}
+
+/* At-the-money: a soft sky wash, not a spreadsheet highlight. */
 .atm {
-  background: color-mix(in oklab, var(--color-trace) 6%, transparent);
+  background: color-mix(in oklab, var(--color-trace) 9%, transparent);
 }
 
 /* --------------------------------------------------------------- controls --- */
 
-/*
- * One action per screen gets the solid button, and it names what happens: "Buy
- * Yes at 62¢", not "Submit". Everything else is an outline.
- */
 .btn-primary {
-  border-radius: 3px;
-  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
   font-family: var(--font-label);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   color: var(--color-deep);
-  background: var(--color-trace);
-  transition: filter 120ms ease;
+  background: var(--color-live);
+  box-shadow: 0 4px 0 color-mix(in oklab, var(--color-live) 55%, #3a2a10);
+  transition:
+    filter 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--color-live) 55%, #3a2a10);
 }
 
 .btn-primary:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-outline {
-  border-radius: 3px;
-  border: 1px solid var(--color-rule);
-  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 2px solid var(--color-rule);
+  padding: 0.5rem 0.9rem;
   font-family: var(--font-label);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 800;
   color: var(--color-foam-dim);
   transition:
     border-color 120ms ease,
-    color 120ms ease;
+    color 120ms ease,
+    background-color 120ms ease;
 }
 
 .btn-outline:hover:not(:disabled) {
   border-color: var(--color-rule-bright);
   color: var(--color-foam);
+  background: color-mix(in oklab, var(--color-raised) 70%, transparent);
 }
 
 .btn-outline:disabled {
@@ -199,10 +228,9 @@ body {
 .btn-primary:focus-visible,
 .btn-outline:focus-visible {
   outline: 2px solid var(--color-trace);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
-/* Number inputs: the spinner is noise in a trading form. */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   appearance: none;
@@ -215,22 +243,43 @@ input[type="number"] {
 
 /* --------------------------------------------------------------- the book --- */
 
-/* Depth bars sit behind the numbers and grow from the price column outward. */
 .depth {
   position: absolute;
-  top: 1px;
-  bottom: 1px;
+  top: 2px;
+  bottom: 2px;
   left: 0;
   z-index: -1;
-  opacity: 0.18;
-  border-radius: 0 2px 2px 0;
+  opacity: 0.22;
+  border-radius: 0 999px 999px 0;
+}
+
+/* ---------------------------------------------------------------- balloons -- */
+
+.orb {
+  display: block;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 244, 232, 0.45),
+    inset 0 -8px 12px rgba(20, 8, 28, 0.18),
+    0 6px 0 rgba(20, 8, 28, 0.16);
+}
+
+.chip {
+  border-radius: 999px;
+  border: 2px solid var(--color-rule);
+  background: color-mix(in oklab, var(--color-raised) 80%, transparent);
+}
+
+.panel {
+  background: color-mix(in oklab, var(--color-hull) 88%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 /* ------------------------------------------------------------------ chrome -- */
 
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -241,17 +290,15 @@ input[type="number"] {
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--color-trace) 35%, transparent);
+  background: color-mix(in oklab, var(--color-live) 40%, transparent);
 }
 
 /* ------------------------------------------------------------------ motion -- */
 
-/* The chain arrives as a sweep, left to right, once. A board of markets that
-   are all counting down should look like it was scanned into place. */
 @keyframes sweep-in {
   from {
     opacity: 0;
-    transform: translateX(-6px);
+    transform: translateY(10px) scale(0.92);
   }
   to {
     opacity: 1;
@@ -260,16 +307,19 @@ input[type="number"] {
 }
 
 .sweep {
-  animation: sweep-in 340ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+  animation: sweep-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 
-/* A print on the tape. One flash, on the cell that traded. */
 @keyframes print-flash {
   from {
-    box-shadow: inset 0 0 0 1px var(--color-trace);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255, 244, 232, 0.5),
+      0 0 0 3px var(--color-trace);
   }
   to {
-    box-shadow: inset 0 0 0 1px transparent;
+    box-shadow:
+      inset 0 1.5px 0 rgba(255, 244, 232, 0.38),
+      0 5px 0 rgba(20, 8, 28, 0.22);
   }
 }
 
@@ -277,10 +327,26 @@ input[type="number"] {
   animation: print-flash 600ms ease-out;
 }
 
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.floaty {
+  animation: floaty 4.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sweep,
   .printed,
-  .tile {
+  .tile,
+  .floaty,
+  .btn-primary {
     animation: none;
     transition: none;
   }

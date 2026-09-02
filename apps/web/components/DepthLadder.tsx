@@ -60,8 +60,8 @@ export function DepthLadder({ bids, asks, onPickCents }: Props) {
         ))}
       </div>
 
-      <div className="flex items-baseline justify-between border-y rule bg-[var(--color-raised)] px-4 py-1.5">
-        <span className="readout text-[13px] font-semibold">
+      <div className="mx-2 my-1 flex items-baseline justify-between rounded-full bg-[var(--color-raised)] px-4 py-1.5">
+        <span className="readout text-[16px]">
           {mid === null ? "—" : formatCents(mid)}
         </span>
         <span className="data text-[10px] text-[var(--color-foam-faint)]">

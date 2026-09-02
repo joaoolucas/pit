@@ -85,21 +85,21 @@ export function RiskDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="risk-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1224]/70 p-4 backdrop-blur-sm"
       onClick={onDismiss}
     >
       <div
-        className="max-w-md rounded border border-[var(--color-rule-bright)] bg-[var(--color-hull)] p-5"
+        className="panel max-w-md rounded-[28px] p-6 shadow-[0_10px_0_rgba(20,8,28,0.35)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id="risk-title" className="mb-3 text-[13px] font-semibold">
+        <h2 id="risk-title" className="mark mb-3 text-[28px] leading-none">
           {t("risk.title")}
         </h2>
-        <p className="mb-5 text-[12px] leading-relaxed text-[var(--color-foam-dim)]">{t("risk.body")}</p>
+        <p className="mb-5 text-[14px] leading-relaxed text-[var(--color-foam-dim)]">{t("risk.body")}</p>
         <button
           type="button"
           onClick={onAccept}
-          className="w-full rounded bg-[var(--color-trace)] py-2 text-[12px] font-medium text-[var(--color-deep)]"
+          className="btn-primary w-full"
         >
           {t("risk.accept")}
         </button>

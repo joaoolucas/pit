@@ -235,18 +235,16 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
 
   return (
     <div className="flex flex-col">
-      <div className="flex border-b rule">
+      <div className="mx-3 mt-3 flex gap-1 rounded-full bg-[var(--color-deep)] p-1">
         {(["take", "make"] as const).map((option) => (
           <button
             key={option}
             type="button"
             onClick={() => setMode(option)}
-            className="flex-1 py-2 text-[11px] font-medium uppercase tracking-[0.1em]"
+            className="flex-1 rounded-full py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
             style={{
-              color: mode === option ? "var(--color-foam)" : "var(--color-foam-faint)",
-              borderBottom:
-                mode === option ? "1px solid var(--color-trace)" : "1px solid transparent",
-              marginBottom: -1,
+              color: mode === option ? "var(--color-deep)" : "var(--color-foam-faint)",
+              background: mode === option ? "var(--color-foam)" : "transparent",
             }}
           >
             {t(`ticket.${option}` as const)}
@@ -267,7 +265,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
                 key={option}
                 type="button"
                 onClick={() => setSide(option)}
-                className="flex flex-col items-center gap-0.5 rounded-[3px] border py-2 transition-colors"
+                className="flex flex-col items-center gap-0.5 rounded-[22px] border-2 py-2.5 transition-colors"
                 style={{
                   borderColor: active ? `var(--color-${option})` : "var(--color-rule)",
                   background: active
@@ -279,7 +277,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
                 <span className="text-[11px] font-semibold uppercase tracking-[0.1em]">
                   {t(`ticket.${option}` as const)}
                 </span>
-                <span className="readout text-[15px] font-semibold leading-none">
+                <span className="readout text-[20px] leading-none">
                   {price == null ? "—" : formatCents(price)}
                 </span>
               </button>
@@ -290,7 +288,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
         {mode === "take" ? (
           <>
             <div className="flex items-stretch gap-2">
-              <label className="flex flex-1 items-center rounded-[3px] border rule bg-[var(--color-deep)] px-2.5">
+              <label className="flex flex-1 items-center rounded-full border-2 rule bg-[var(--color-deep)] px-3">
                 <span className="data mr-1 text-[13px] text-[var(--color-foam-faint)]">$</span>
                 <input
                   type="number"
@@ -300,7 +298,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
                   value={dollars}
                   onChange={(event) => setDollars(event.target.value)}
                   aria-label={t("ticket.amount")}
-                  className="readout w-full bg-transparent py-2 text-[15px] font-semibold outline-none"
+                  className="readout w-full bg-transparent py-2 text-[18px] outline-none"
                 />
               </label>
               {CHIPS.map((chip) => (
@@ -308,7 +306,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
                   key={chip}
                   type="button"
                   onClick={() => setDollars(String((Number(dollars) || 0) + chip))}
-                  className="data rounded-[3px] border rule px-2 text-[11px] text-[var(--color-foam-dim)] transition-colors hover:border-[var(--color-rule-bright)] hover:text-[var(--color-foam)]"
+                  className="chip data px-2.5 text-[12px] font-bold text-[var(--color-foam-dim)] transition-colors hover:border-[var(--color-rule-bright)] hover:text-[var(--color-foam)]"
                 >
                   +{chip}
                 </button>
@@ -316,11 +314,11 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
             </div>
 
             {/* The number that decides it. */}
-            <div className="rounded-[3px] border rule bg-[var(--color-raised)] px-3 py-2.5">
+            <div className="rounded-[24px] bg-[var(--color-raised)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,244,232,0.12)]">
               <div className="flex items-end justify-between">
                 <span className="label">{t("ticket.toWin")}</span>
                 <span
-                  className="readout text-[22px] font-semibold leading-none"
+                  className="readout text-[36px] leading-none"
                   style={{ color: takeTicket ? "var(--color-yes)" : "var(--color-foam-faint)" }}
                 >
                   {takeTicket ? `$${takeTicket.toWin.toFixed(2)}` : "—"}
@@ -407,7 +405,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
               </button>
             </div>
 
-            <div className="rounded-[3px] border rule px-2.5 py-2">
+            <div className="rounded-[22px] border-2 rule px-3 py-2.5">
               <p className="mb-2 text-[10px] leading-relaxed text-[var(--color-foam-faint)]">
                 {t("ticket.needInventory")}
               </p>
@@ -480,7 +478,7 @@ function Field({
   return (
     <label className="flex flex-col gap-1">
       <span className="label">{label}</span>
-      <span className="flex items-center rounded-[3px] border rule bg-[var(--color-deep)] px-2.5">
+      <span className="flex items-center rounded-full border-2 rule bg-[var(--color-deep)] px-3">
         <input
           type="number"
           inputMode="decimal"

@@ -1,23 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans_Condensed, Martian_Mono } from "next/font/google";
+import { Bagel_Fat_One, Fredoka, IBM_Plex_Mono, Nunito } from "next/font/google";
 
 import "./globals.css";
 import { I18nProvider } from "@/lib/i18n";
 import { WalletProvider } from "@/lib/wallet";
 
 /**
- * Three faces, three jobs.
+ * Four faces, four jobs.
  *
- * Martian Mono is wide and mechanical — it is the readout face, used only for
- * the handful of numbers that carry a decision: the multiple on a tile, spot,
- * the clock. Plex Mono runs the tables, where tabular figures and a narrow
- * advance matter more than character. Plex Sans Condensed handles labels,
- * because a dense board needs its words to take less room than its numbers.
+ * Bagel Fat One is the mark — balloon letters, used once, on the word "Pit".
+ * Fredoka is the readout: fat, round, the 2.5x on a tile and the TO WIN. Nunito
+ * handles the words. Plex Mono still runs the book, because a tape has to be a
+ * column of numbers, not a cartoon.
  */
-const display = Martian_Mono({
+const mark = Bagel_Fat_One({
   subsets: ["latin"],
-  weight: ["500", "600"],
-  variable: "--font-martian",
+  weight: "400",
+  variable: "--font-bagel",
+  display: "swap",
+});
+
+const display = Fredoka({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-fredoka",
   display: "swap",
 });
 
@@ -28,10 +34,10 @@ const data = IBM_Plex_Mono({
   display: "swap",
 });
 
-const label = IBM_Plex_Sans_Condensed({
+const label = Nunito({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-condensed",
+  weight: ["500", "700", "800"],
+  variable: "--font-nunito",
   display: "swap",
 });
 
@@ -42,13 +48,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#08151c",
+  themeColor: "#1a1224",
   colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${data.variable} ${label.variable}`}>
+    <html
+      lang="en"
+      className={`${mark.variable} ${display.variable} ${data.variable} ${label.variable}`}
+    >
       <body>
         <I18nProvider>
           <WalletProvider>{children}</WalletProvider>

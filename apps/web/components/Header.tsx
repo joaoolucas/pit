@@ -18,40 +18,34 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
   const { t, locale, setLocale } = useI18n();
 
   return (
-    <header className="shrink-0 border-b rule bg-[var(--color-hull)]">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2">
-        {/* The mark: a board, four cells, one lit. */}
-        <div className="flex items-center gap-2.5">
-          <span aria-hidden className="grid grid-cols-2 gap-[2px]">
-            {[0, 1, 2, 3].map((i) => (
-              <span
-                key={i}
-                className="block size-[5px] rounded-[1px]"
-                style={{
-                  background: i === 1 ? "var(--color-yes)" : "var(--color-rule-bright)",
-                }}
-              />
-            ))}
+    <header className="shrink-0 px-3 pt-3">
+      <div className="panel flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[28px] px-4 py-2.5 shadow-[0_6px_0_rgba(20,8,28,0.28)]">
+        {/* The mark: three balloons and a fat word. */}
+        <div className="flex items-center gap-3">
+          <span aria-hidden className="flex items-end gap-0.5">
+            <span className="orb size-[11px] bg-[var(--color-yes)]" />
+            <span className="orb size-[16px] bg-[var(--color-live)]" />
+            <span className="orb size-[11px] bg-[var(--color-no)]" />
           </span>
-          <span className="readout text-[14px] font-semibold tracking-[-0.02em]">Pit</span>
-          <span className="hidden text-[11px] text-[var(--color-foam-faint)] xl:inline">
+          <span className="mark text-[28px] leading-none text-[var(--color-foam)]">Pit</span>
+          <span className="hidden text-[12px] font-medium text-[var(--color-foam-faint)] xl:inline">
             {t("app.tagline")}
           </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-5">
+        <div className="ml-auto flex items-center gap-4">
           {/* Spot anchors every strike on the board, so it goes first and never
               moves. */}
           <div className="flex items-baseline gap-2">
             <span className="label">BTC</span>
-            <span className="readout text-[17px] font-semibold leading-none">
+            <span className="readout text-[28px] leading-none">
               {spotE8 === null
                 ? "—"
                 : e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>
             {changePct !== null && (
               <span
-                className="data text-[11px]"
+                className="readout text-[13px]"
                 style={{
                   color: changePct >= 0 ? "var(--color-yes)" : "var(--color-no)",
                 }}
@@ -67,19 +61,19 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
           <button
             type="button"
             onClick={onOpenRisk}
-            className="text-[11px] text-[var(--color-foam-dim)] underline decoration-dotted underline-offset-4 transition-colors hover:text-[var(--color-foam)]"
+            className="text-[12px] font-bold text-[var(--color-foam-dim)] underline decoration-dotted underline-offset-4 transition-colors hover:text-[var(--color-foam)]"
           >
             {t("risk.more")}
           </button>
 
-          <div className="flex overflow-hidden rounded-[3px] border rule text-[11px]">
+          <div className="chip flex overflow-hidden text-[11px] font-extrabold">
             {(["pt-BR", "en"] as const).map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => setLocale(option)}
                 aria-pressed={locale === option}
-                className="px-2 py-1 transition-colors"
+                className="px-2.5 py-1 transition-colors"
                 style={{
                   background: locale === option ? "var(--color-raised)" : "transparent",
                   color: locale === option ? "var(--color-foam)" : "var(--color-foam-faint)",
@@ -95,7 +89,7 @@ export function Header({ spotE8, changePct, indexerAgeSeconds, indexerDown, onOp
       </div>
 
       {!isConfigured && (
-        <p className="border-t rule bg-[color-mix(in_oklab,var(--color-no)_12%,transparent)] px-4 py-1.5 text-[11px] text-[var(--color-foam-dim)]">
+        <p className="mx-1 mt-2 rounded-full bg-[color-mix(in_oklab,var(--color-no)_16%,transparent)] px-4 py-1.5 text-[12px] text-[var(--color-foam-dim)]">
           {t("status.notConfigured")}
         </p>
       )}
@@ -128,9 +122,9 @@ function IndexerPill({ ageSeconds, down }: { ageSeconds: number | null; down: bo
         : t("status.live");
 
   return (
-    <div className="flex items-center gap-1.5" title={t("status.indexer")}>
-      <span aria-hidden className="inline-block size-1.5 rounded-full" style={{ background: colour }} />
-      <span className="text-[11px] text-[var(--color-foam-dim)]">
+    <div className="chip flex items-center gap-1.5 px-2.5 py-1" title={t("status.indexer")}>
+      <span aria-hidden className="orb inline-block size-2" style={{ background: colour }} />
+      <span className="text-[11px] font-bold text-[var(--color-foam-dim)]">
         <span className="label mr-1">{t("status.indexer")}</span>
         {text}
       </span>
@@ -177,7 +171,7 @@ function WalletButton() {
       href={`${chain.explorerUrl}/address/${wallet.address}`}
       target="_blank"
       rel="noreferrer"
-      className="data rounded-[3px] border rule px-2.5 py-1 text-[11px] text-[var(--color-foam-dim)] transition-colors hover:border-[var(--color-rule-bright)]"
+      className="data chip px-3 py-1.5 text-[11px] text-[var(--color-foam-dim)] transition-colors hover:border-[var(--color-rule-bright)]"
     >
       {shortAddress(wallet.address)}
     </a>
