@@ -1,0 +1,78 @@
+# One cell: the live book, the tape, and the signed flow behind it.
+#
+# BookLevel rows with size 0 are kept rather than deleted so a level that empties
+# and refills does not churn ids; the client drops them.
+query Cell($market: String!, $since: numeric!) {
+  CellState(where: { id: { _eq: $market } }) {
+    id
+    windowId
+    side
+    endTs
+    strikeE8
+    bestBid
+    bestAsk
+    lastPrice
+    makers
+    volume
+    tradeCount
+    cvd
+    outcome
+    updatedAtTs
+  }
+
+  bids: BookLevel(
+    where: { market_id: { _eq: $market }, isBuy: { _eq: true }, size: { _gt: 0 } }
+    order_by: { price: desc }
+    limit: 25
+  ) {
+    price
+    size
+    orderCount
+  }
+
+  asks: BookLevel(
+    where: { market_id: { _eq: $market }, isBuy: { _eq: false }, size: { _gt: 0 } }
+    order_by: { price: asc }
+    limit: 25
+  ) {
+    price
+    size
+    orderCount
+  }
+
+  fills: Fill(
+    where: { market_id: { _eq: $market } }
+    order_by: { timestamp: desc }
+    limit: 50
+  ) {
+    id
+    price
+    filledSize
+    makerIsBuy
+    maker
+    taker
+    timestamp
+    txHash
+  }
+
+  flow: WindowCvd(
+    where: { market_id: { _eq: $market }, bucketTs: { _gte: $since } }
+    order_by: { bucketTs: asc }
+  ) {
+    bucketTs
+    cvd
+    delta
+    volume
+    trades
+  }
+
+  makers: MarketMaker(
+    where: { market_id: { _eq: $market }, liveOrders: { _gt: 0 } }
+    order_by: { restingSize: desc }
+    limit: 10
+  ) {
+    owner
+    liveOrders
+    restingSize
+  }
+}

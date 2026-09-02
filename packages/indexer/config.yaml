@@ -1,0 +1,45 @@
+name: cell
+description: >-
+  Cell — every 5-minute YES/NO window and the two Kuru books it lists on.
+  CellFactory addresses come from packages/contracts/deployments; run
+  `npm run sync` after a deploy instead of editing them by hand.
+ecosystem: evm
+
+# Kuru markets are created by CellFactory at runtime, so the indexer must follow
+# addresses it has never seen. Reorg rollback stays on: a five-minute market that
+# reports a fill twice is worse than one that reports it a block late.
+rollback_on_reorg: true
+raw_events: false
+
+# block.number and block.timestamp are always present; the tx hash is not.
+field_selection:
+  transaction_fields:
+    - hash
+
+contracts:
+  - name: CellFactory
+    abi_file_path: abis/CellFactory.json
+    events:
+      - event: WindowCreated(uint256 indexed windowId, bytes32 indexed underlying, uint64 startTs, uint64 endTs, uint256 strikeE8, address yes, address no, address yesMarket, address noMarket)
+      - event: SetMinted(uint256 indexed windowId, address indexed account, uint256 amount)
+      - event: SetBurned(uint256 indexed windowId, address indexed account, uint256 amount)
+      - event: WindowSettled(uint256 indexed windowId, uint8 outcome, uint256 settlePriceE8, uint64 settledAt)
+      - event: WindowVoided(uint256 indexed windowId, uint64 voidedAt)
+      - event: Redeemed(uint256 indexed windowId, address indexed account, uint256 burned, uint256 payout)
+
+  # No address: every instance is discovered from WindowCreated. See
+  # src/handlers/factory.ts, which calls context.chain.KuruOrderBook.add().
+  - name: KuruOrderBook
+    abi_file_path: abis/KuruOrderBook.json
+    events:
+      - event: OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy)
+      - event: OrdersCanceled(uint40[] orderId, address owner)
+      - event: Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)
+
+chains:
+  - id: 10143
+    start_block: 0
+    contracts:
+      - name: CellFactory
+        address: "0x0000000000000000000000000000000000000000"
+      - name: KuruOrderBook

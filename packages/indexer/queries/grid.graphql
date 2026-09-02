@@ -1,0 +1,32 @@
+# The board. One round trip paints every cell in the visible columns.
+#
+# CellState is denormalised on purpose: a 7x8 grid is 56 cells and 112 books,
+# and joining BookLevel per cell to find a best bid would be 112 joins to
+# render one screen that refreshes every block.
+query Grid($endTsFrom: numeric!, $endTsTo: numeric!, $underlying: String!) {
+  CellState(
+    where: {
+      endTs: { _gte: $endTsFrom, _lte: $endTsTo }
+      underlying: { _eq: $underlying }
+    }
+    order_by: [{ endTs: asc }, { strikeE8: desc }]
+  ) {
+    id
+    windowId
+    window_id
+    side
+    endTs
+    strikeE8
+    bestBid
+    bestAsk
+    lastPrice
+    bidDepth
+    askDepth
+    makers
+    volume
+    tradeCount
+    cvd
+    outcome
+    updatedAtTs
+  }
+}

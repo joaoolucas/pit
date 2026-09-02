@@ -1,0 +1,24 @@
+# A trader's own footprint: live orders and recent fills, across every cell.
+query MyActivity($owner: String!) {
+  Order(
+    where: { owner: { _eq: $owner }, status: { _eq: "open" } }
+    order_by: { createdAtTs: desc }
+    limit: 100
+  ) {
+    id
+    market_id
+    orderId
+    isBuy
+    price
+    remainingSize
+    createdAtTs
+  }
+
+  Account(where: { id: { _eq: $owner } }) {
+    ordersPlaced
+    ordersCanceled
+    fillsAsMaker
+    fillsAsTaker
+    volume
+  }
+}

@@ -1,0 +1,207 @@
+"""
+The book a Cell shows is this schema.
+
+Nothing in the app polls an RPC for logs. Kuru emits OrderCreated, Trade and
+OrdersCanceled; HyperIndex folds them into BookLevel, CellState and WindowCvd,
+and the UI reads those. That is the whole data path.
+"""
+
+"A 5-minute YES/NO window issued by CellFactory."
+type Window {
+  "The onchain window id, as a string."
+  id: ID!
+  windowId: BigInt!
+  "keccak256 of the pair label, e.g. keccak256(\"BTC-USD\")."
+  underlying: String!
+  startTs: BigInt!
+  endTs: BigInt!
+  "Settles YES when the reference price at endTs is strictly above this. 1e8 USD."
+  strikeE8: BigInt!
+
+  yesToken: String!
+  noToken: String!
+  yesMarket: String!
+  noMarket: String!
+
+  "Collateral locked by outstanding sets. Equals the open interest in contracts."
+  collateral: BigInt!
+  "0 unresolved, 1 YES, 2 NO, 3 void."
+  outcome: Int!
+  settlePriceE8: BigInt!
+  settledAt: BigInt!
+
+  createdAtBlock: BigInt!
+  createdAtTs: BigInt!
+  "Sum of filledSize across both legs, in Kuru size units."
+  volume: BigInt!
+  tradeCount: Int!
+}
+
+"""
+One Kuru orderbook: the YES leg or the NO leg of a window.
+
+Registered dynamically the moment CellFactory emits WindowCreated, so the
+indexer follows markets that did not exist when it started.
+"""
+type Market {
+  "Lowercased market address."
+  id: ID!
+  window_id: String! @index
+  windowId: BigInt!
+  "YES or NO."
+  side: String!
+  baseToken: String!
+  quoteToken: String!
+  endTs: BigInt!
+  strikeE8: BigInt!
+  createdAtBlock: BigInt!
+}
+
+"""
+A resting order, mirrored from Kuru's own lifecycle.
+
+Kuru reports the remaining size on every Trade, so `remainingSize` is what the
+book says rather than something this indexer reconstructs by subtraction.
+"""
+type Order {
+  "market-orderId."
+  id: ID!
+  market_id: String! @index
+  orderId: BigInt!
+  owner: String! @index
+  isBuy: Boolean!
+  "Kuru tick. Divide by 1e6 for a probability."
+  price: BigInt!
+  "Size when the order was created."
+  size: BigInt!
+  remainingSize: BigInt!
+  "open | filled | canceled"
+  status: String!
+  createdAtBlock: BigInt!
+  createdAtTs: BigInt!
+  updatedAtBlock: BigInt!
+  txHash: String!
+}
+
+"""
+Aggregated depth at one price on one side of one market.
+
+This is the cell's book. `orderCount` is how the UI answers "who is on the
+book" without leaking every order id into the grid query.
+"""
+type BookLevel {
+  "market-side-price."
+  id: ID!
+  market_id: String! @index
+  isBuy: Boolean!
+  price: BigInt!
+  "Sum of remainingSize across live orders at this price."
+  size: BigInt!
+  orderCount: Int!
+  updatedAtBlock: BigInt!
+}
+
+"One fill. The tape."
+type Fill {
+  "txHash-logIndex."
+  id: ID!
+  market_id: String! @index
+  windowId: BigInt!
+  orderId: BigInt!
+  maker: String!
+  taker: String!
+  "True when the order that was resting is a bid, i.e. the taker sold into it."
+  makerIsBuy: Boolean!
+  price: BigInt!
+  filledSize: BigInt!
+  "filledSize * price, in Kuru tick*size units. Kept so CVD does not need a join."
+  notional: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+"""
+Cumulative volume delta over a window, bucketed to 15 seconds.
+
+Signed by taker aggression: a taker lifting the offer is positive, a taker
+hitting the bid is negative. For a five-minute binary this is the single most
+useful derived series — it says whether the move in the price came from someone
+paying up or from a quote being pulled.
+"""
+type WindowCvd {
+  "market-bucketTs."
+  id: ID!
+  market_id: String! @index
+  windowId: BigInt!
+  bucketTs: BigInt!
+  "Running total for this market, at the end of this bucket."
+  cvd: BigInt!
+  "Signed volume inside this bucket alone."
+  delta: BigInt!
+  volume: BigInt!
+  trades: Int!
+}
+
+"""
+Everything the grid needs to paint one cell, denormalised to a single row.
+
+The grid renders ~50 cells at a time and must not do 50 joins to do it.
+"""
+type CellState {
+  "Lowercased market address, same id as Market."
+  id: ID!
+  market_id: String! @index
+  window_id: String! @index
+  windowId: BigInt!
+  side: String!
+  underlying: String!
+  endTs: BigInt!
+  strikeE8: BigInt!
+
+  bestBid: BigInt
+  bestAsk: BigInt
+  lastPrice: BigInt
+  "Sum of resting size on the bid side."
+  bidDepth: BigInt!
+  "Sum of resting size on the ask side."
+  askDepth: BigInt!
+  "Distinct owners with a live order."
+  makers: Int!
+  volume: BigInt!
+  tradeCount: Int!
+  cvd: BigInt!
+  "Mirrors Window.outcome so the grid can grey out a settled cell in one read."
+  outcome: Int!
+  updatedAtBlock: BigInt!
+  updatedAtTs: BigInt!
+}
+
+"Per-address activity, so a trader can find their own orders and fills."
+type Account {
+  "Lowercased address."
+  id: ID!
+  ordersPlaced: Int!
+  ordersCanceled: Int!
+  fillsAsMaker: Int!
+  fillsAsTaker: Int!
+  volume: BigInt!
+  firstSeenTs: BigInt!
+  lastSeenTs: BigInt!
+}
+
+"""
+One maker's live footprint on one market.
+
+Kept so CellState.makers is an exact distinct count rather than a scan of every
+order every time the book moves: the counter only changes when a maker's live
+order count crosses zero.
+"""
+type MarketMaker {
+  "market-owner."
+  id: ID!
+  market_id: String! @index
+  owner: String! @index
+  liveOrders: Int!
+  restingSize: BigInt!
+}
