@@ -10,7 +10,12 @@ Settlement is a Chainlink CRE workflow writing onchain.
 
 No mock books. No static JSON. If Kuru is down, Cell is down.
 
-![The grid: five-minute columns, a strike ladder for rows, BTC drawn across it](docs/img/grid.jpg)
+![The board: five-minute columns, a $50 strike ladder for rows, BTC drawn across it, and one cell open with its live Kuru book](docs/img/grid.jpg)
+
+*Left: the board. The big number in a cell is what it pays; the line under it is the
+implied probability, the market width, and how many makers stand behind it. Right:
+one cell open — the live L2 book from the indexer, the spread, and the address
+quoting it.*
 
 MIT licensed, public from commit 1.
 
