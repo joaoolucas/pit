@@ -23,17 +23,19 @@ export type Underlying = "BTC-USD" | "ETH-USD";
 /** Columns rendered ahead of the live one. Eight columns is 40 minutes of tape. */
 export const DEFAULT_COLUMNS = 8;
 
+/** Rows on the board. Odd, so there is a middle. */
+export const DEFAULT_LADDER_ROWS = 7;
+
 /**
- * Ladder offsets in basis points of spot, centre first.
+ * Row spacing, in basis points of spot.
  *
- * Centre (0 bps) is the up/down cell. The others are the above/below rows.
- *
- * The step is chosen against the actual distribution, not for round numbers: at a
- * 30% annualised vol a five-minute BTC move has a standard deviation near 9 bps,
- * so a 5 bps step puts the outer rows at roughly 1.6 sigma. Wider and the edge
- * rows print 0.99 and nobody trades them; tighter and every row is the same bet.
+ * Chosen against the actual distribution rather than for round numbers: at a 30%
+ * annualised vol a five-minute BTC move has a standard deviation near 9 bps, so
+ * a 5 bps step puts the outer rows of a 7-row ladder at roughly 1.6 sigma. Wider
+ * and the edge rows print 0.99 and nobody trades them; tighter and every row is
+ * the same bet.
  */
-export const DEFAULT_LADDER_BPS = [15, 10, 5, 0, -5, -10, -15] as const;
+export const DEFAULT_LADDER_STEP_BPS = 5;
 
 /** Start of the 5-minute window containing `unixSeconds`. */
 export function windowStart(unixSeconds: number, size = WINDOW_SECONDS): number {
@@ -57,14 +59,46 @@ export function secondsLeft(endTs: number, nowSeconds: number): number {
 }
 
 /**
- * Strike ladder around `spotE8`, snapped to whole dollars so the labels a trader
- * reads are the numbers the contract stores.
+ * Round step sizes, in whole dollars.
+ *
+ * The ladder snaps to one of these rather than to whatever `spot * stepBps`
+ * happens to be, and that matters more than it looks: the roller runs every
+ * minute against a moving spot, and a ladder derived from the live price would
+ * produce a slightly different set of strikes every run. The board would then
+ * fill with near-duplicate rows, each holding one column and a gap everywhere
+ * else. Anchoring to a fixed grid means consecutive runs reuse the same strikes,
+ * so a row is a row all the way across.
  */
-export function strikeLadder(spotE8: bigint, ladderBps: readonly number[] = DEFAULT_LADDER_BPS): bigint[] {
-  return ladderBps.map((bps) => {
-    const shifted = (spotE8 * BigInt(10_000 + bps)) / 10_000n;
-    return roundStrikeE8(shifted);
-  });
+const NICE_STEPS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000];
+
+/** The dollar spacing a ladder around `spotE8` should use. */
+export function ladderStepUsd(spotE8: bigint, stepBps = DEFAULT_LADDER_STEP_BPS): number {
+  const raw = (e8ToUsd(spotE8) * stepBps) / 10_000;
+  let best = NICE_STEPS[0]!;
+  for (const step of NICE_STEPS) {
+    if (Math.abs(step - raw) < Math.abs(best - raw)) best = step;
+  }
+  return best;
+}
+
+/**
+ * Strike ladder around `spotE8`, highest first, anchored to a fixed dollar grid.
+ *
+ * The middle row is the strike nearest spot — the "up/down" cell — and the rest
+ * are the above/below rows. Because the grid is absolute rather than relative to
+ * the current price, the same strike keeps its row as spot drifts.
+ */
+export function strikeLadder(
+  spotE8: bigint,
+  rows = DEFAULT_LADDER_ROWS,
+  stepBps = DEFAULT_LADDER_STEP_BPS,
+): bigint[] {
+  const step = ladderStepUsd(spotE8, stepBps);
+  const stepE8 = usdToE8(step);
+  const anchor = (spotE8 + stepE8 / 2n) / stepE8; // nearest grid line, in steps
+  const half = Math.floor(rows / 2);
+
+  return Array.from({ length: rows }, (_, i) => (anchor + BigInt(half - i)) * stepE8);
 }
 
 /** Snap a strike to the nearest whole dollar (1e8 units). */

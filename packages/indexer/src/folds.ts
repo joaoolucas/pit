@@ -11,7 +11,19 @@
  * touch, so the real context satisfies it structurally with no adapter.
  */
 
-import { bucketOf, cvdKey, fillKey, levelKey, lower, makerKey, marketId, orderKey } from "./shared.ts";
+import {
+  bucketOf,
+  cvdKey,
+  fillKey,
+  levelKey,
+  lower,
+  makerKey,
+  marketId,
+  orderKey,
+  OUTCOME,
+  underlyingLabel,
+  windowIdOf,
+} from "./shared.ts";
 
 // ---------------------------------------------------------------------------
 // Entities
@@ -131,6 +143,7 @@ type Entity<T> = {
 };
 
 export type Store = {
+  Market?: Entity<Record<string, unknown>>;
   Order: Entity<OrderRow>;
   BookLevel: Entity<BookLevelRow>;
   MarketMaker: Entity<MarketMakerRow>;
@@ -467,4 +480,132 @@ export async function touchAccount(
     firstSeenTs: existing?.firstSeenTs ?? ts,
     lastSeenTs: ts,
   });
+}
+
+// ---------------------------------------------------------------------------
+// CellFactory folds
+//
+// Shared with the local dev harness so a window opens the same way whether the
+// logs arrive from HyperSync or from eth_getLogs on a Hardhat node.
+// ---------------------------------------------------------------------------
+
+export type WindowCreatedEvent = {
+  windowId: bigint;
+  underlying: string;
+  startTs: bigint;
+  endTs: bigint;
+  strikeE8: bigint;
+  yes: string;
+  no: string;
+  yesMarket: string;
+  noMarket: string;
+  block: BlockInfo;
+};
+
+export async function applyWindowCreated(store: Store, event: WindowCreatedEvent): Promise<void> {
+  const id = windowIdOf(event.windowId);
+  const label = underlyingLabel(event.underlying);
+
+  store.Window.set({
+    id,
+    windowId: event.windowId,
+    underlying: label,
+    startTs: event.startTs,
+    endTs: event.endTs,
+    strikeE8: event.strikeE8,
+    yesToken: event.yes,
+    noToken: event.no,
+    yesMarket: marketId(event.yesMarket),
+    noMarket: marketId(event.noMarket),
+    collateral: 0n,
+    outcome: OUTCOME.Unresolved,
+    settlePriceE8: 0n,
+    settledAt: 0n,
+    createdAtBlock: BigInt(event.block.number),
+    createdAtTs: BigInt(event.block.timestamp),
+    volume: 0n,
+    tradeCount: 0,
+  } as never);
+
+  for (const [side, market, token] of [
+    ["YES", event.yesMarket, event.yes],
+    ["NO", event.noMarket, event.no],
+  ] as const) {
+    store.Market?.set({
+      id: marketId(market),
+      window_id: id,
+      windowId: event.windowId,
+      side,
+      baseToken: token,
+      quoteToken: "",
+      endTs: event.endTs,
+      strikeE8: event.strikeE8,
+      createdAtBlock: BigInt(event.block.number),
+    } as never);
+
+    // A cell exists on the grid before anyone quotes it. Writing CellState here
+    // means an unquoted cell renders as "no book yet" rather than as a hole.
+    store.CellState.set({
+      id: marketId(market),
+      market_id: marketId(market),
+      window_id: id,
+      windowId: event.windowId,
+      side,
+      underlying: label,
+      endTs: event.endTs,
+      strikeE8: event.strikeE8,
+      bestBid: undefined,
+      bestAsk: undefined,
+      lastPrice: undefined,
+      bidDepth: 0n,
+      askDepth: 0n,
+      makers: 0,
+      volume: 0n,
+      tradeCount: 0,
+      cvd: 0n,
+      outcome: OUTCOME.Unresolved,
+      updatedAtBlock: BigInt(event.block.number),
+      updatedAtTs: BigInt(event.block.timestamp),
+    });
+  }
+}
+
+/** Mirror an outcome onto the window and both of its legs. */
+export async function applyWindowResolved(
+  store: Store,
+  event: {
+    windowId: bigint;
+    outcome: number;
+    settlePriceE8: bigint;
+    settledAt: bigint;
+    block: BlockInfo;
+  },
+): Promise<void> {
+  const window = await store.Window.get(windowIdOf(event.windowId));
+  if (!window) return;
+
+  store.Window.set({
+    ...window,
+    outcome: event.outcome,
+    settlePriceE8: event.settlePriceE8,
+    settledAt: event.settledAt,
+  });
+
+  for (const market of [window.yesMarket, window.noMarket]) {
+    const cell = await store.CellState.get(marketId(market));
+    if (!cell) continue;
+    store.CellState.set({
+      ...cell,
+      outcome: event.outcome,
+      updatedAtBlock: BigInt(event.block.number),
+      updatedAtTs: BigInt(event.block.timestamp),
+    });
+  }
+}
+
+/** Open interest, tracked from mint/burn/redeem rather than re-read from chain. */
+export async function applyCollateralDelta(store: Store, windowId: bigint, delta: bigint): Promise<void> {
+  const window = await store.Window.get(windowIdOf(windowId));
+  if (!window) return;
+  store.Window.set({ ...window, collateral: window.collateral + delta });
 }

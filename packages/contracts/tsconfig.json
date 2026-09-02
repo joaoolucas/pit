@@ -8,13 +8,17 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "allowImportingTsExtensions": true
   },
   "include": [
     "./scripts",
     "./test",
     "./hardhat.config.ts",
     "./typechain-types",
-    "../core/src/**/*.ts"
+    "../core/src/**/*.ts",
+    "../indexer/src/folds.ts",
+    "../indexer/src/shared.ts",
+    "../indexer/src/memory-store.ts"
   ]
 }

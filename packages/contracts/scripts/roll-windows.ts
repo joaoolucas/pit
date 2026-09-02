@@ -12,7 +12,9 @@ import { ethers, network } from "hardhat";
 import { fetchSpotE8, nowSeconds, readDeployment, usd } from "./lib";
 import {
   DEFAULT_COLUMNS,
-  DEFAULT_LADDER_BPS,
+  DEFAULT_LADDER_ROWS,
+  DEFAULT_LADDER_STEP_BPS,
+  ladderStepUsd,
   strikeLadder,
   upcomingWindowEnds,
   WINDOW_SECONDS,
@@ -27,17 +29,16 @@ async function main() {
   const [signer] = await ethers.getSigners();
 
   const columns = Number(process.env.COLUMNS ?? DEFAULT_COLUMNS);
-  const ladderBps = process.env.LADDER_BPS
-    ? process.env.LADDER_BPS.split(",").map((s) => Number(s.trim()))
-    : [...DEFAULT_LADDER_BPS];
+  const rows = Number(process.env.ROWS ?? DEFAULT_LADDER_ROWS);
+  const stepBps = Number(process.env.STEP_BPS ?? DEFAULT_LADDER_STEP_BPS);
 
   const spotE8 = await fetchSpotE8(UNDERLYING_LABEL);
   const now = nowSeconds();
   const ends = upcomingWindowEnds(now, columns);
-  const strikes = strikeLadder(spotE8, ladderBps);
+  const strikes = strikeLadder(spotE8, rows, stepBps);
 
   console.log(`${UNDERLYING_LABEL} spot $${usd(spotE8)} on ${network.name}`);
-  console.log(`Grid: ${columns} columns x ${strikes.length} rows`);
+  console.log(`Grid: ${columns} columns x ${rows} rows, $${ladderStepUsd(spotE8, stepBps)} apart`);
   console.log(`Roller: ${signer.address}\n`);
 
   let created = 0;

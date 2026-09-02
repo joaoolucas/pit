@@ -82,11 +82,20 @@ function IndexerPill({ ageSeconds, down }: { ageSeconds: number | null; down: bo
 
   // Three states, and the middle one matters: a book that is ten seconds behind
   // on a five-minute market is a book you should not lift.
+  const waiting = !down && ageSeconds === null;
   const stale = !down && ageSeconds !== null && ageSeconds > 5;
-  const colour = down ? "var(--color-no)" : stale ? "var(--color-live)" : "var(--color-yes)";
+  const colour = down
+    ? "var(--color-no)"
+    : waiting
+      ? "var(--color-ink-faint)"
+      : stale
+        ? "var(--color-live)"
+        : "var(--color-yes)";
   const text = down
     ? t("status.down")
-    : stale
+    : waiting
+      ? "…"
+      : stale
       ? t("status.stale", { seconds: Math.round(ageSeconds ?? 0) })
       : t("status.live");
 

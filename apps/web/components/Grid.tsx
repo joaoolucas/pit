@@ -7,7 +7,11 @@ import type { Candle } from "@/lib/usePrice";
 import { e8ToUsd, formatClock, Outcome, tickToProb, WINDOW_SECONDS } from "@cell/core";
 import type { GridCell } from "./types";
 
-const ROW_HEIGHT = 46;
+/** Never thinner than this, however much room there is. */
+const MIN_ROW_HEIGHT = 46;
+
+/** Width of the strike axis. The price overlay starts after it. */
+const AXIS_WIDTH = 72;
 
 type Props = {
   columns: number[];
@@ -44,11 +48,11 @@ export function Grid({
   onSelect,
 }: Props) {
   const { t } = useI18n();
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   useLayoutEffect(() => {
-    const node = bodyRef.current;
+    const node = boardRef.current;
     if (!node) return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
@@ -58,6 +62,11 @@ export function Grid({
   }, []);
 
   const liveIndex = columns.findIndex((endTs) => endTs > now);
+
+  // Rows share whatever height the board has. A ladder of seven leaves a wall of
+  // empty terminal otherwise, and a ladder of twenty needs to scroll.
+  const rowHeight =
+    strikes.length === 0 ? MIN_ROW_HEIGHT : Math.max(MIN_ROW_HEIGHT, Math.floor(size.height / strikes.length));
 
   /** Price -> y pixel, interpolating between the two strikes that bracket it. */
   const priceToY = useMemo(() => {
@@ -75,35 +84,53 @@ export function Grid({
         const lower = values[i + 1]!;
         if (price <= upper && price >= lower) {
           const fraction = upper === lower ? 0 : (upper - price) / (upper - lower);
-          return (i + 0.5 + fraction) * ROW_HEIGHT;
+          return (i + 0.5 + fraction) * rowHeight;
         }
       }
       return null;
     };
-  }, [strikes]);
+  }, [strikes, rowHeight]);
 
-  const columnWidth = columns.length > 0 ? size.width / columns.length : 0;
+  // The overlay is inset past the strike axis, so every x is measured against
+  // the plot area rather than the whole board.
+  const plotWidth = Math.max(size.width - AXIS_WIDTH, 0);
 
-  /** The realised path, drawn over the columns it actually happened in. */
-  const pricePath = useMemo(() => {
-    if (columnWidth === 0 || candles.length === 0 || columns.length === 0) return "";
-    const firstEnd = columns[0]!;
-    const start = firstEnd - WINDOW_SECONDS;
-    const span = columns.length * WINDOW_SECONDS;
+  const gridStart = columns.length > 0 ? columns[0]! - WINDOW_SECONDS : 0;
+  const gridSpan = columns.length * WINDOW_SECONDS;
+  const timeToX = (unixSeconds: number) => ((unixSeconds - gridStart) / gridSpan) * plotWidth;
 
-    const points: string[] = [];
+  /**
+   * The realised path, drawn over the columns it actually happened in.
+   *
+   * Returned as segments rather than one polyline: when the price leaves the
+   * strike ladder there is no honest y for it, and joining the points either
+   * side of the gap would draw a line through cells the price never visited.
+   */
+  const priceSegments = useMemo(() => {
+    if (plotWidth === 0 || candles.length === 0 || columns.length === 0) return [];
+
+    const segments: string[][] = [];
+    let current: string[] = [];
+
     for (const candle of candles) {
-      const offset = candle.time - start;
-      if (offset < 0 || offset > span) continue;
-      const y = priceToY(candle.close);
-      if (y === null) continue;
-      points.push(`${((offset / span) * size.width).toFixed(1)},${y.toFixed(1)}`);
+      const offset = candle.time - gridStart;
+      const y = offset < 0 || offset > gridSpan ? null : priceToY(candle.close);
+      if (y === null) {
+        if (current.length > 1) segments.push(current);
+        current = [];
+        continue;
+      }
+      current.push(`${timeToX(candle.time).toFixed(1)},${y.toFixed(1)}`);
     }
-    return points.length > 1 ? points.join(" ") : "";
-  }, [candles, columns, columnWidth, priceToY, size.width]);
+    if (current.length > 1) segments.push(current);
+
+    return segments.map((points) => points.join(" "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candles, columns, priceToY, plotWidth]);
 
   const spotY = spotE8 === null ? null : priceToY(e8ToUsd(spotE8));
-  const spotX = liveIndex >= 0 && columnWidth > 0 ? liveIndex * columnWidth : null;
+  // The marker belongs at *now*, not at the start of the live column.
+  const spotX = plotWidth > 0 ? timeToX(now) : null;
 
   if (columns.length === 0 || strikes.length === 0) {
     return (
@@ -118,7 +145,7 @@ export function Grid({
       {/* Column headers: the clock, which is the other half of every cell. */}
       <div
         className="grid border-b hairline"
-        style={{ gridTemplateColumns: `72px repeat(${columns.length}, minmax(78px, 1fr))` }}
+        style={{ gridTemplateColumns: `${AXIS_WIDTH}px repeat(${columns.length}, minmax(78px, 1fr))` }}
       >
         <div className="label px-2 py-1.5">{t("grid.strike")}</div>
         {columns.map((endTs, index) => {
@@ -146,17 +173,17 @@ export function Grid({
                       : "var(--color-ink-faint)",
                 }}
               >
-                {isPast ? t("grid.settled") : formatClock(remaining)}
+                {isPast ? t("grid.closed") : formatClock(remaining)}
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="relative flex-1 overflow-auto">
+      <div ref={boardRef} className="relative flex-1 overflow-auto">
         <div
           className="grid"
-          style={{ gridTemplateColumns: `72px repeat(${columns.length}, minmax(78px, 1fr))` }}
+          style={{ gridTemplateColumns: `${AXIS_WIDTH}px repeat(${columns.length}, minmax(78px, 1fr))` }}
         >
           {strikes.map((strikeE8) => (
             <StrikeRow
@@ -165,6 +192,7 @@ export function Grid({
               columns={columns}
               cells={cells}
               spotE8={spotE8}
+              rowHeight={rowHeight}
               selectedId={selectedId}
               onSelect={onSelect}
             />
@@ -173,22 +201,22 @@ export function Grid({
 
         {/* The price, over the board. Absolute so it never disturbs the grid. */}
         <div
-          ref={bodyRef}
           className="pointer-events-none absolute inset-y-0 right-0"
-          style={{ left: 72 }}
+          style={{ left: AXIS_WIDTH }}
           aria-hidden
         >
           <svg width="100%" height="100%" className="overflow-visible">
-            {pricePath && (
+            {priceSegments.map((points, index) => (
               <polyline
-                points={pricePath}
+                key={index}
+                points={points}
                 fill="none"
                 stroke="var(--color-ink)"
                 strokeWidth={1.25}
                 strokeLinejoin="round"
                 opacity={0.75}
               />
-            )}
+            ))}
             {spotY !== null && (
               <>
                 <line
@@ -202,6 +230,24 @@ export function Grid({
                   opacity={0.4}
                 />
                 {spotX !== null && <circle cx={spotX} cy={spotY} r={3} fill="var(--color-ink)" />}
+                {/* The price, pinned to its own line. Every strike on the board
+                    is read against this number, so it should never be a
+                    glance away in the header. */}
+                <g transform={`translate(${Math.max(plotWidth - 62, 0)}, ${spotY - 8})`}>
+                  <rect width={60} height={16} rx={2} fill="var(--color-ink)" />
+                  <text
+                    x={30}
+                    y={11}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fontFamily="var(--font-mono)"
+                    fill="var(--color-void)"
+                  >
+                    {spotE8 === null
+                      ? ""
+                      : e8ToUsd(spotE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                  </text>
+                </g>
               </>
             )}
           </svg>
@@ -220,6 +266,7 @@ function StrikeRow({
   columns,
   cells,
   spotE8,
+  rowHeight,
   selectedId,
   onSelect,
 }: {
@@ -227,6 +274,7 @@ function StrikeRow({
   columns: number[];
   cells: Map<string, GridCell>;
   spotE8: bigint | null;
+  rowHeight: number;
   selectedId: string | null;
   onSelect: (cell: GridCell) => void;
 }) {
@@ -247,7 +295,7 @@ function StrikeRow({
         className={`flex items-center justify-end border-b border-r hairline px-2 ${
           atMoney ? "bg-[var(--color-raised)]" : ""
         }`}
-        style={{ height: ROW_HEIGHT }}
+        style={{ height: rowHeight }}
       >
         <span className="num text-[11px] text-[var(--color-ink-dim)]">
           {e8ToUsd(strikeE8).toLocaleString("en-US", { maximumFractionDigits: 0 })}
@@ -261,6 +309,7 @@ function StrikeRow({
             key={`${endTs}:${strikeE8}`}
             cell={cell}
             selected={cell ? cellId(endTs, strikeE8) === selectedId : false}
+            rowHeight={rowHeight}
             onSelect={onSelect}
           />
         );
@@ -272,10 +321,12 @@ function StrikeRow({
 function CellTile({
   cell,
   selected,
+  rowHeight,
   onSelect,
 }: {
   cell: GridCell | undefined;
   selected: boolean;
+  rowHeight: number;
   onSelect: (cell: GridCell) => void;
 }) {
   const { t } = useI18n();
@@ -284,7 +335,7 @@ function CellTile({
     return (
       <div
         className="border-b border-r hairline bg-[color-mix(in_oklab,var(--color-void)_60%,transparent)]"
-        style={{ height: ROW_HEIGHT }}
+        style={{ height: rowHeight }}
       />
     );
   }
@@ -292,16 +343,24 @@ function CellTile({
   const probability = cell.impliedProbability;
   const settled = cell.outcome !== Outcome.Unresolved;
 
-  // Fill carries the belief. Everything else on the tile is text, so a trader can
-  // read the board at a glance and the detail only when they look.
-  const intensity = probability === null ? 0 : Math.min(Math.max(probability, 0), 1);
+  /**
+   * Fill carries the belief, and the hue carries which side of the money the
+   * cell is on: green once the book thinks YES is more likely than not, red
+   * below. Intensity is how sure it is, so a 0.52 and a 0.94 are never the same
+   * shade. Everything else on the tile is text.
+   */
+  const p = probability === null ? null : Math.min(Math.max(probability, 0), 1);
+  const inTheMoney = p !== null && p >= 0.5;
+  const conviction = p === null ? 0 : Math.abs(p - 0.5) * 2; // 0 at a coin flip, 1 at certainty
   const background = settled
     ? cell.outcome === Outcome.Yes
-      ? "color-mix(in oklab, var(--color-yes) 20%, transparent)"
+      ? "color-mix(in oklab, var(--color-yes) 22%, transparent)"
       : cell.outcome === Outcome.No
-        ? "color-mix(in oklab, var(--color-no) 14%, transparent)"
+        ? "color-mix(in oklab, var(--color-no) 16%, transparent)"
         : "var(--color-raised)"
-    : `color-mix(in oklab, var(--color-yes) ${(intensity * 22).toFixed(1)}%, transparent)`;
+    : p === null
+      ? "transparent"
+      : `color-mix(in oklab, var(--color-${inTheMoney ? "yes" : "no"}) ${(4 + conviction * 20).toFixed(1)}%, transparent)`;
 
   return (
     <button
@@ -309,7 +368,7 @@ function CellTile({
       onClick={() => onSelect(cell)}
       data-selected={selected}
       className="cell flex flex-col items-center justify-center gap-0.5 border-b border-r hairline text-center"
-      style={{ height: ROW_HEIGHT, background }}
+      style={{ height: rowHeight, background }}
       title={`${e8ToUsd(cell.strikeE8).toLocaleString()} · ${new Date(cell.endTs * 1000).toLocaleTimeString()}`}
     >
       {settled ? (
@@ -326,16 +385,26 @@ function CellTile({
         >
           {cell.outcome === Outcome.Yes ? "YES" : cell.outcome === Outcome.No ? "NO" : "VOID"}
         </span>
-      ) : probability === null ? (
+      ) : p === null ? (
         <span className="text-[10px] text-[var(--color-ink-faint)]">{t("grid.noBook")}</span>
       ) : (
         <>
-          <span className="num text-[13px] leading-none text-[var(--color-ink)]">
-            {(probability * 100).toFixed(0)}
-            <span className="text-[9px] text-[var(--color-ink-faint)]">%</span>
+          {/* The payoff, not the probability. A trader decides on "1.9x", and
+              the percentage is the same fact stated in a way that takes an extra
+              beat to convert. Both are here; the useful one is bigger. */}
+          <span
+            className="num text-[13px] leading-none"
+            style={{ color: inTheMoney ? "var(--color-yes)" : "var(--color-no)" }}
+          >
+            {p >= 0.995 ? "1.0" : (1 / Math.max(p, 0.005)).toFixed(p < 0.1 ? 0 : 1)}
+            <span className="text-[9px] opacity-70">x</span>
           </span>
+          {/* Probability, market width, and how many makers stand behind it —
+              which is what decides whether the number above is a price or a
+              decoration. */}
           <span className="num text-[9px] leading-none text-[var(--color-ink-faint)]">
-            {cell.spread === null ? "—" : `±${(cell.spread * 100).toFixed(1)}`}
+            {(p * 100).toFixed(0)}%
+            {cell.spread !== null && ` · ${(cell.spread * 200).toFixed(1)}w`}
             {cell.makers > 0 && ` · ${cell.makers}`}
           </span>
         </>

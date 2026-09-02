@@ -17,7 +17,10 @@
     "seed:local": "hardhat run scripts/seed.ts --network localhost",
     "settle:manual": "hardhat run scripts/settle.ts --network monadTestnet",
     "export:abi": "hardhat run scripts/export-abi.ts",
-    "settle:local": "hardhat run scripts/settle.ts --network localhost"
+    "settle:local": "hardhat run scripts/settle.ts --network localhost",
+    "indexer:local": "hardhat run scripts/local-indexer.ts --network localhost",
+    "demo:fills": "hardhat run scripts/demo-fills.ts --network monadTestnet",
+    "demo:fills:local": "hardhat run scripts/demo-fills.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

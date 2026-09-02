@@ -43,9 +43,29 @@ export const MONAD_MAINNET: ChainConfig = {
   },
 };
 
+/**
+ * A Hardhat node with MockKuruRouter standing in for Kuru.
+ *
+ * Present so `npm run dev` works end to end on a laptop with nothing deployed.
+ * The Kuru addresses are filled in at deploy time — on this chain the deploy
+ * script deploys its own mock router, so whatever is here would be wrong.
+ */
+export const LOCALHOST: ChainConfig = {
+  id: 31337,
+  name: "Hardhat",
+  rpcUrl: "http://127.0.0.1:8545",
+  explorerUrl: "http://127.0.0.1:8545",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  kuru: {
+    router: "0x0000000000000000000000000000000000000000",
+    marginAccount: "0x0000000000000000000000000000000000000000",
+  },
+};
+
 export const CHAINS: Record<number, ChainConfig> = {
   [MONAD_TESTNET.id]: MONAD_TESTNET,
   [MONAD_MAINNET.id]: MONAD_MAINNET,
+  [LOCALHOST.id]: LOCALHOST,
 };
 
 export function chainById(id: number): ChainConfig {

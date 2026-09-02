@@ -11,6 +11,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { createMemoryStore } from "../src/memory-store.ts";
 import {
   applyOrderCreated,
   applyOrdersCanceled,
@@ -30,47 +31,7 @@ const size = (contracts: number) => BigInt(contracts) * 1_000_000n;
 /** 0.42 as a Kuru tick. */
 const tick = (probability: number) => BigInt(Math.round(probability * 1_000_000));
 
-/** An in-memory stand-in for Envio's handler context. */
-function makeStore() {
-  const tables = new Map<string, Map<string, Record<string, unknown>>>();
-
-  const table = (name: string) => {
-    let existing = tables.get(name);
-    if (!existing) {
-      existing = new Map();
-      tables.set(name, existing);
-    }
-    return existing;
-  };
-
-  const entity = (name: string) => ({
-    get: async (id: string) => table(name).get(id) as never,
-    getWhere: async (filter: Record<string, { _eq?: unknown }>) =>
-      [...table(name).values()].filter((row) =>
-        Object.entries(filter).every(([field, condition]) => row[field] === condition._eq),
-      ) as never,
-    set: (row: { id: string }) => {
-      table(name).set(row.id, row as Record<string, unknown>);
-    },
-  });
-
-  const store = {
-    Order: entity("Order"),
-    BookLevel: entity("BookLevel"),
-    MarketMaker: entity("MarketMaker"),
-    CellState: entity("CellState"),
-    WindowCvd: entity("WindowCvd"),
-    Fill: entity("Fill"),
-    Account: entity("Account"),
-    Window: entity("Window"),
-  } as unknown as Store;
-
-  return {
-    store,
-    rows: <T>(name: string) => [...table(name).values()] as T[],
-    row: <T>(name: string, id: string) => table(name).get(id) as T | undefined,
-  };
-}
+const makeStore = createMemoryStore;
 
 function seedCell(store: Store) {
   store.CellState.set({

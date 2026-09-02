@@ -108,7 +108,7 @@ export function CellPanel({
               state ? sizeToContracts(BigInt(state.volume)).toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"
             }
           />
-          <Stat label={t("cell.makers")} value={String(state?.makers ?? 0)} />
+          <Stat label={t("cell.makersShort")} value={String(state?.makers ?? 0)} />
         </div>
 
         {/* The payoff, stated once, in the units the ticket uses. */}
