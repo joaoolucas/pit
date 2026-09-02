@@ -1,0 +1,19 @@
+{
+  "name": "@cell/core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Window math, Kuru price/size conversions and shared addresses. Imported by the web app, the indexer and the deploy scripts so there is one definition of a cell.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./abi/*": "./src/abi/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

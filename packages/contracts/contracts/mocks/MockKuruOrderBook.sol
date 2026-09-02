@@ -106,7 +106,29 @@ contract MockKuruOrderBook {
         _place(price, size, false, postOnly);
     }
 
+    /// @notice Cancel-and-requote in one call, the way a maker actually refreshes.
+    function batchUpdate(
+        uint32[] calldata buyPrices,
+        uint96[] calldata buySizes,
+        uint32[] calldata sellPrices,
+        uint96[] calldata sellSizes,
+        uint40[] calldata orderIdsToCancel,
+        bool postOnly
+    ) external {
+        _cancel(orderIdsToCancel);
+        for (uint256 i; i < buyPrices.length; ++i) {
+            _place(buyPrices[i], buySizes[i], true, postOnly);
+        }
+        for (uint256 i; i < sellPrices.length; ++i) {
+            _place(sellPrices[i], sellSizes[i], false, postOnly);
+        }
+    }
+
     function batchCancelOrders(uint40[] calldata orderIds) external {
+        _cancel(orderIds);
+    }
+
+    function _cancel(uint40[] calldata orderIds) internal {
         uint256 n = orderIds.length;
         uint40[] memory canceled = new uint40[](n);
         uint256 count;
