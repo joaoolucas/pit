@@ -38,6 +38,14 @@ type Props = {
   /** Set when a price is clicked in the book, so Make can join or lift it. */
   pickedCents: number | null;
   onRequireRisk: () => Promise<boolean>;
+  /**
+   * The two-tap path on its own: pick a side, tap an amount, send.
+   *
+   * Make is a price and a size, and open orders are a thing you go and look at.
+   * Neither is what someone who just clicked a tile is doing, and both were on
+   * screen before the amount was. They live in the opened cell instead.
+   */
+  compact?: boolean;
 };
 
 type Mode = "take" | "make";
@@ -59,12 +67,20 @@ type Status =
  * Every order leaves through the Kuru SDK. Nothing in this file records a trade
  * anywhere but on the book.
  */
-export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: Props) {
+export function Ticket({
+  windowId,
+  outcome,
+  legs,
+  pickedCents,
+  onRequireRisk,
+  compact = false,
+}: Props) {
   const { t } = useI18n();
   const wallet = useWallet();
   const collateral = useCollateral(wallet.address);
 
-  const [mode, setMode] = useState<Mode>("take");
+  const [chosen, setMode] = useState<Mode>("take");
+  const mode: Mode = compact ? "take" : chosen;
   const [side, setSide] = useState<Side>("yes");
   const [dollars, setDollars] = useState("25");
   const [makeCents, setMakeCents] = useState("50");
@@ -105,7 +121,12 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
   /* ----------------------------------------------------------------- actions */
 
   const guard = async (label: string) => {
-    if (!wallet.address) return false;
+    // The ticket fills in without a wallet, so every action can be reached
+    // without one. Asking for it here is the only place it is actually needed.
+    if (!wallet.address) {
+      void wallet.connect();
+      return false;
+    }
     if (!(await onRequireRisk())) return false;
     setStatus({ kind: "busy", label });
     return true;
@@ -203,16 +224,17 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
 
   /* ------------------------------------------------------------------ views */
 
-  if (!wallet.address) {
-    return (
-      <div className="px-4 py-5 text-center">
-        <p className="mb-3 text-[12px] text-[var(--color-foam-dim)]">{t("ticket.needWallet")}</p>
-        <button type="button" onClick={() => void wallet.connect()} className="btn-primary w-full">
-          {t("wallet.connect")}
-        </button>
-      </div>
-    );
-  }
+  /**
+   * No wallet is not a reason to hide the prices.
+   *
+   * This used to replace the whole ticket with a Connect button, which meant the
+   * quickest thing about the quick ticket — two prices, an amount, what it pays
+   * — was behind a wallet connection. Nothing here reads a chain to work out any
+   * of that; the book comes from the indexer and the arithmetic is local. So the
+   * ticket fills in either way and the last step is the one that needs a signer.
+   */
+  const anonymous = !wallet.address;
+  const connect = () => void wallet.connect();
 
   if (settled) {
     return (
@@ -225,8 +247,12 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
               : t("cell.outcome.void")}
         </p>
         <p className="mb-4 text-[12px] text-[var(--color-foam-dim)]">{t("ticket.redeemBlurb")}</p>
-        <button type="button" onClick={() => void claim()} className="btn-primary w-full">
-          {t("ticket.redeem")}
+        <button
+          type="button"
+          onClick={anonymous ? connect : () => void claim()}
+          className="btn-primary w-full"
+        >
+          {anonymous ? t("wallet.connect") : t("ticket.redeem")}
         </button>
         <StatusLine status={status} />
       </div>
@@ -235,22 +261,24 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
 
   return (
     <div className="flex flex-col">
-      <div className="mx-3 mt-3 flex gap-1 rounded-full bg-[var(--color-deep)] p-1">
-        {(["take", "make"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setMode(option)}
-            className="flex-1 rounded-full py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
-            style={{
-              color: mode === option ? "var(--color-deep)" : "var(--color-foam-faint)",
-              background: mode === option ? "var(--color-foam)" : "transparent",
-            }}
-          >
-            {t(`ticket.${option}` as const)}
-          </button>
-        ))}
-      </div>
+      {!compact && (
+        <div className="mx-3 mt-3 flex gap-1 rounded-full bg-[var(--color-deep)] p-1">
+          {(["take", "make"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setMode(option)}
+              className="flex-1 rounded-full py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
+              style={{
+                color: mode === option ? "var(--color-deep)" : "var(--color-foam-faint)",
+                background: mode === option ? "var(--color-foam)" : "transparent",
+              }}
+            >
+              {t(`ticket.${option}` as const)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 px-4 py-3">
         {/* Side, with the price on the button — the only two prices that matter
@@ -340,19 +368,23 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
 
             <button
               type="button"
-              onClick={() => void take()}
-              disabled={!takeTicket || status.kind === "busy" || !wallet.onRightChain}
+              onClick={anonymous ? connect : () => void take()}
+              disabled={
+                !anonymous && (!takeTicket || status.kind === "busy" || !wallet.onRightChain)
+              }
               className="btn-primary w-full"
-              style={{ background: `var(--color-${side})` }}
+              style={anonymous ? undefined : { background: `var(--color-${side})` }}
             >
-              {status.kind === "busy"
-                ? status.label
-                : leg?.askCents == null
-                  ? t("ticket.noOffer")
-                  : t("ticket.buyAction", {
-                      side: t(`ticket.${side}` as const),
-                      price: formatCents(leg.askCents),
-                    })}
+              {anonymous
+                ? t("wallet.connect")
+                : status.kind === "busy"
+                  ? status.label
+                  : leg?.askCents == null
+                    ? t("ticket.noOffer")
+                    : t("ticket.buyAction", {
+                        side: t(`ticket.${side}` as const),
+                        price: formatCents(leg.askCents),
+                      })}
             </button>
           </>
         ) : (
@@ -418,7 +450,7 @@ export function Ticket({ windowId, outcome, legs, pickedCents, onRequireRisk }: 
 
         <StatusLine status={status} />
 
-        <div className="border-t rule pt-2.5">
+        <div className={`border-t rule pt-2.5 ${compact ? "hidden" : ""}`}>
           <div className="mb-1.5 flex items-baseline justify-between">
             <span className="label">{t("ticket.myOrders")}</span>
             {myOrders.length > 0 && (

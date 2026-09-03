@@ -56,6 +56,9 @@ const dictionary = {
 
     "cell.select": "Pick a cell.",
     "cell.selectHint": "You get the live book, the tape and who is quoting — and you can quote too.",
+    "cell.close": "Close",
+    "cell.more": "Book · tape · flow · notes",
+    "cell.less": "Just the ticket",
     "cell.claim": "BTC above {strike}",
     "cell.closes": "closes {time}",
     "cell.expired": "closed",

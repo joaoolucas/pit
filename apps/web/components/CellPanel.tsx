@@ -43,6 +43,27 @@ type CellQueryResult = {
 type Tab = "book" | "tape" | "flow" | "notes";
 
 /**
+ * Both books of a cell, as the ticket wants them.
+ *
+ * Shared with the compact ticket in `CellDialog`, which shows the same two
+ * prices with none of the furniture around them — the same reading either way is
+ * the point.
+ */
+export function legQuotes(legs: BoardCell["legs"]): Record<Side, LegQuote | null> {
+  const build = (option: Side): LegQuote | null => {
+    const row = legs[option];
+    if (!row) return null;
+    return {
+      side: option,
+      market: row.id,
+      askCents: row.bestAsk ? tickToCents(BigInt(row.bestAsk)) : null,
+      bidCents: row.bestBid ? tickToCents(BigInt(row.bestBid)) : null,
+    };
+  };
+  return { yes: build("yes"), no: build("no") };
+}
+
+/**
  * One cell, opened.
  *
  * The header is the spine of an option chain: the YES price, the strike, and the
@@ -92,19 +113,7 @@ export function CellPanel({
   const closed = !settled && remaining <= 0;
   const elapsed = Math.min(Math.max(1 - remaining / WINDOW_SECONDS, 0), 1);
 
-  const quotes = useMemo<Record<Side, LegQuote | null>>(() => {
-    const build = (option: Side): LegQuote | null => {
-      const row = cell.legs[option];
-      if (!row) return null;
-      return {
-        side: option,
-        market: row.id,
-        askCents: row.bestAsk ? tickToCents(BigInt(row.bestAsk)) : null,
-        bidCents: row.bestBid ? tickToCents(BigInt(row.bestBid)) : null,
-      };
-    };
-    return { yes: build("yes"), no: build("no") };
-  }, [cell.legs]);
+  const quotes = useMemo(() => legQuotes(cell.legs), [cell.legs]);
 
   /**
    * What both legs cost together. Two separate order books have no obligation to

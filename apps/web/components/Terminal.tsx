@@ -5,9 +5,9 @@ import { useMemo, useRef, useState } from "react";
 import { GRID_POLL_MS, UNDERLYING } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
 import { GRID_QUERY, usePolledQuery, type RawCellState } from "@/lib/indexer";
-import { useCandles, useNow, useSpot } from "@/lib/usePrice";
-import { BalloonCluster, Board, cellId } from "./Board";
-import { CellPanel } from "./CellPanel";
+import { useCandles, useNow, useSpot, useSpotTrail } from "@/lib/usePrice";
+import { Board, cellId } from "./Board";
+import { CellDialog } from "./CellDialog";
 import { Header } from "./Header";
 import { RiskDialog, useRiskGate } from "./RiskGate";
 import type { BoardCell } from "./types";
@@ -30,13 +30,24 @@ import {
  * where the price that decided it is still on screen.
  */
 const SETTLED_COLUMNS = 1;
-const FUTURE_COLUMNS = 7;
+const FUTURE_COLUMNS = 6;
+/**
+ * How many strikes the ladder shows.
+ *
+ * Nine fitted when a row was seventy pixels tall and the board was three
+ * quarters of the screen. It is neither now — the rail is gone and a cell is a
+ * cell rather than a strip — and nine of the taller rows would put the board
+ * under a scrollbar, which costs more than the two outermost strikes, the ones
+ * furthest from the money and least likely to be traded, are worth.
+ */
+const LADDER_ROWS = 7;
 
 export function Terminal() {
   const { t } = useI18n();
   const clock = useClock();
   const now = useNow();
   const { priceE8 } = useSpot(UNDERLYING);
+  const trail = useSpotTrail(priceE8);
   const candles = useCandles(UNDERLYING);
   const risk = useRiskGate();
 
@@ -132,7 +143,7 @@ export function Terminal() {
    */
   const held = useRef<bigint[]>([]);
   const strikes = useMemo(() => {
-    const fresh = visibleStrikes(allStrikes, priceE8);
+    const fresh = visibleStrikes(allStrikes, priceE8, LADDER_ROWS);
     const previous = held.current;
 
     const stillUsable =
@@ -171,15 +182,19 @@ export function Terminal() {
         onOpenRisk={risk.show}
       />
 
-      {/* Two panes side by side once there is room for both. Below that the
-          board keeps most of the screen and the opened cell sits under it, in a
-          column that scrolls — stacking them inside a locked viewport height
-          left the panel squashed to nothing with no way to reach it. */}
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-rows-1 lg:gap-2 lg:overflow-hidden lg:grid-cols-[1fr_360px]">
-        {/* The frame is Pit; what is inside it is a board. Rounding the surface
-            and ruling the grid within it is the whole compromise: the chrome
-            keeps the carnival, the instrument keeps its lines. */}
-        <section className="panel min-h-[26rem] overflow-hidden rounded-[20px] shadow-[0_6px_0_rgba(20,8,28,0.28)] lg:min-h-0">
+      {/* One surface.
+          There were two: the board, and a rail holding the opened cell. The rail
+          was three hundred and sixty pixels of the screen whether a cell was
+          open or not, and it was not open most of the time — so the board paid
+          permanently for something occasional, and the cell you clicked ended up
+          as far from its own ticket as the layout could put it. The ticket opens
+          against the tile now. The grid gets the width back.
+
+          The frame is Pit; what is inside it is a board. Rounding the surface
+          and ruling the grid within it is the whole compromise: the chrome keeps
+          the carnival, the instrument keeps its lines. */}
+      <main className="min-h-0 flex-1 p-2">
+        <section className="panel h-full min-h-0 overflow-hidden rounded-[20px] shadow-[0_6px_0_rgba(20,8,28,0.28)]">
           {error && !data ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
               <p className="text-[13px] text-[var(--color-no)]">
@@ -200,27 +215,23 @@ export function Terminal() {
               cells={cells}
               spotE8={priceE8}
               candles={candles}
+              trail={trail}
               now={now}
               selectedId={selectedId}
               onSelect={(cell) => setSelectedId(cell.id)}
             />
           )}
         </section>
-
-        {selected ? (
-          <div className="min-h-[32rem] lg:min-h-0">
-            <CellPanel cell={selected} now={now} onRequireRisk={risk.require} />
-          </div>
-        ) : (
-          <aside className="panel hidden flex-col items-center justify-center gap-3 rounded-[20px] p-10 text-center shadow-[0_6px_0_rgba(20,8,28,0.28)] lg:flex">
-            <BalloonCluster />
-            <p className="readout text-[22px] text-[var(--color-foam)]">{t("cell.select")}</p>
-            <p className="max-w-[15rem] text-[13px] leading-relaxed text-[var(--color-foam-faint)]">
-              {t("cell.selectHint")}
-            </p>
-          </aside>
-        )}
       </main>
+
+      {selected && (
+        <CellDialog
+          cell={selected}
+          now={now}
+          onClose={() => setSelectedId(null)}
+          onRequireRisk={risk.require}
+        />
+      )}
 
       <RiskDialog open={risk.open} onAccept={risk.accept} onDismiss={risk.dismiss} />
     </div>

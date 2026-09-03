@@ -190,6 +190,31 @@ body {
  * the line can cross it. Washed rather than ruled, so the change of state reads
  * as a dissolve and not as another wall.
  */
+/*
+ * Declared, so it can be animated.
+ *
+ * A custom property is a string to the engine unless it is told otherwise, and
+ * a string cannot be interpolated — the wash jumped a whole second's width once
+ * a second, on the one element whose job is to show time passing. Typed as a
+ * percentage it transitions, and the boundary creeps.
+ */
+@property --spent {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+.cell.spent {
+  transition: --spent 1s linear;
+}
+
+.tile.spent {
+  transition:
+    box-shadow 120ms ease,
+    background-color 200ms ease,
+    --spent 1s linear;
+}
+
 .cell.spent::before {
   content: "";
   position: absolute;
@@ -199,8 +224,8 @@ body {
   z-index: -1;
   background: linear-gradient(
     to right,
-    color-mix(in oklab, var(--color-deep) 62%, transparent) 0,
-    color-mix(in oklab, var(--color-deep) 30%, transparent) var(--spent, 0%),
+    color-mix(in oklab, var(--color-deep) 78%, transparent) 0,
+    color-mix(in oklab, var(--color-deep) 46%, transparent) var(--spent, 0%),
     transparent var(--spent, 0%)
   );
   pointer-events: none;
@@ -341,6 +366,108 @@ input[type="number"] {
   backdrop-filter: blur(16px);
 }
 
+/* ------------------------------------------------------------------ trace -- */
+
+/*
+ * The live end of the price line.
+ *
+ * A ring that leaves the dot and fades, once every couple of seconds. It carries
+ * no number — it is there because a board of five-minute markets should look
+ * like it is running even in the seconds when nothing prints, and because the
+ * dot is the one place on the board where the price is now rather than then.
+ */
+@keyframes tip-halo {
+  0% {
+    r: 5;
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    r: 17;
+    opacity: 0;
+  }
+}
+
+.tip-halo {
+  animation: tip-halo 2.2s ease-out infinite;
+}
+
+/*
+ * The second hand, on the now mark.
+ *
+ * Now crosses this board at about half a pixel a second. That is honest motion
+ * and invisible motion — under the threshold where anything reads as moving, so
+ * between two countdown ticks the whole surface looked stopped. A beat in place,
+ * once a second, is the rate the eye actually registers. It adds no information;
+ * it makes information the board already had legible as movement.
+ */
+@keyframes now-beat {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  12% {
+    opacity: 1;
+  }
+}
+
+.now-beat {
+  animation: now-beat 1s ease-out infinite;
+}
+
+/* The line arrives with the board rather than snapping in behind it. */
+@keyframes trace-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.trace {
+  animation: trace-in 620ms ease-out both;
+}
+
+/* -------------------------------------------------------------- the ticket -- */
+
+/*
+ * Opened against the cell.
+ *
+ * It grows a little out of nothing, from the edge nearest the tile it belongs
+ * to, so the eye follows it from the market that was clicked instead of finding
+ * it already in place somewhere else.
+ */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.965) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop {
+  animation: pop-in 150ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  transform-origin: top left;
+  border-radius: 20px;
+  /*
+   * Opaque, unlike every other panel on this page.
+   *
+   * `.panel` is the hull at 88% over a blur, which reads as solid while it sits
+   * on the page background. This one sits on the board — on 29px multiples in
+   * yes-green and no-pink — and twelve percent of those came straight through
+   * the ticket, behind its own numbers. A surface you can read the wrong price
+   * through is not a surface.
+   */
+  background: var(--color-hull);
+  box-shadow:
+    0 0 0 1px var(--color-rule),
+    0 20px 44px rgba(10, 4, 16, 0.55);
+}
+
 /* ------------------------------------------------------------------ chrome -- */
 
 ::-webkit-scrollbar {
@@ -412,7 +539,11 @@ input[type="number"] {
   .printed,
   .tile,
   .floaty,
-  .btn-primary {
+  .btn-primary,
+  .tip-halo,
+  .now-beat,
+  .trace,
+  .pop {
     animation: none;
     transition: none;
   }

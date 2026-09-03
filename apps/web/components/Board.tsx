@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { rollCommand } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
-import type { Candle } from "@/lib/usePrice";
+import type { Candle, PricePoint } from "@/lib/usePrice";
 import {
   e8ToUsd,
   formatCents,
@@ -20,8 +20,15 @@ import {
 } from "@pit/core";
 import type { BoardCell } from "./types";
 
-/** Rows never get thinner than this — the multiple is the headline, so it needs room. */
-const MIN_ROW_HEIGHT = 72;
+/**
+ * Rows never get thinner than this.
+ *
+ * The multiple is the headline and it was being read out of a letterbox: a
+ * hundred-odd pixels wide and seventy tall, which is a strip, not a cell. The
+ * board carries the whole width now that nothing is parked beside it, so the
+ * height is the half that had to give.
+ */
+const MIN_ROW_HEIGHT = 84;
 /** The strike axis, on the right, where a chart puts its price scale. */
 const AXIS_WIDTH = 106;
 /**
@@ -35,13 +42,15 @@ const AXIS_WIDTH = 106;
  * at a different x. A join between two clocks that disagree can only be a wall.
  *
  * There is one lattice now. Every lane on this board, past or future, is one
- * five-minute window wide, and the trace is simply the six windows before the
- * first column opens. The price is drawn over that shared grid and carries on
- * into the live column, which is where the price actually is.
+ * five-minute window wide, and the trace is simply the windows before the first
+ * column opens. The price is drawn over that shared grid and carries on into the
+ * live column, which is where the price actually is.
  */
-const PAST_LANES = 6;
+const PAST_LANES = 5;
 /** Minutes of realised price the past lanes cover. */
 const TRACE_MINUTES = (PAST_LANES * WINDOW_SECONDS) / 60;
+/** How finely the live end of the price line is drawn. See `points` in Trace. */
+const TRAIL_SECONDS = 15;
 /**
  * No gap between cells.
  *
@@ -111,6 +120,8 @@ type Props = {
   now: number;
   selectedId: string | null;
   onSelect: (cell: BoardCell) => void;
+  /** Spot as it arrived, second by second. The live end of the price line. */
+  trail: PricePoint[];
 };
 
 /**
@@ -136,6 +147,7 @@ export function Board({
   now,
   selectedId,
   onSelect,
+  trail,
 }: Props) {
   const { t } = useI18n();
   const { ref: bodyRef, height: bodyHeight } = useMeasured<HTMLDivElement>();
@@ -183,7 +195,7 @@ export function Board({
 
   const laneCount = PAST_LANES + columns.length;
   /** One template for the head and the body: equal lanes, then the strike axis. */
-  const boardTemplate = `repeat(${laneCount}, minmax(78px, 1fr)) ${AXIS_WIDTH}px`;
+  const boardTemplate = `repeat(${laneCount}, minmax(88px, 1fr)) ${AXIS_WIDTH}px`;
 
   /**
    * The board's clock, as one linear scale.
@@ -278,12 +290,13 @@ export function Board({
             carries on into the window that is still open. */}
         <Trace
           candles={candles}
+          trail={trail}
           strikes={strikes}
           rowHeight={rowHeight}
           now={now}
           from={boardFrom}
           to={boardTo}
-          spotAt={spotAt}
+          liveFrom={liveIndex === -1 ? null : columns[liveIndex]! - WINDOW_SECONDS}
           spotE8={spotE8}
         />
       </div>
@@ -292,9 +305,7 @@ export function Board({
 
       {/* Not over the open cell — the rail beside it is already saying this,
           louder. */}
-      {aim?.cell && aim.cell.id !== selectedId && (
-        <CellCard cell={aim.cell} rect={aim.rect} now={now} />
-      )}
+      {aim?.cell && selectedId === null && <CellCard cell={aim.cell} rect={aim.rect} now={now} />}
     </div>
   );
 }
@@ -567,6 +578,9 @@ function Tile({
     <button
       type="button"
       onClick={() => onSelect(cell)}
+      // The ticket finds its tile by this, and keeps finding it while the board
+      // scrolls under it.
+      data-cell-id={cell.id}
       data-selected={selected}
       data-empty={ink.presence === 0}
       onMouseEnter={take}
@@ -604,13 +618,13 @@ function Tile({
       ) : (
         <>
           <span
-            className="readout text-[22px] leading-none sm:text-[24px]"
+            className="readout text-[26px] leading-none sm:text-[29px]"
             style={{ color: `var(--color-${ink.side === "no" ? "no" : "yes"})` }}
           >
             {formatMultiple(cents)}
           </span>
           {/* What it costs. How deep it is, the paint already said. */}
-          <span className="data text-[11px] leading-none text-[var(--color-foam-dim)]">
+          <span className="data text-[12px] leading-none text-[var(--color-foam-dim)]">
             {formatCents(cents)}
           </span>
         </>
@@ -649,18 +663,25 @@ function Resolved({ outcome }: { outcome: Outcome }) {
  * It rules nothing. Rows and lanes are the cells' own edges — the same hairline
  * across the whole surface — so all that is drawn here is the price, the level
  * it is at, and now.
+ *
+ * Two feeds, one line. Candles carry the older stretch at a point a minute;
+ * `trail` carries the last few minutes at a point a second, which is the part
+ * being traded and the part worth having at that resolution. Past the newest
+ * reading the tip is animated rather than rendered — see below.
  */
 function Trace({
   candles,
+  trail,
   strikes,
   rowHeight,
   now,
   from,
   to,
-  spotAt,
+  liveFrom,
   spotE8,
 }: {
   candles: Candle[];
+  trail: PricePoint[];
   strikes: bigint[];
   rowHeight: number;
   now: number;
@@ -668,7 +689,8 @@ function Trace({
   from: number;
   /** Board time at the right edge of the lanes: the last expiry on the board. */
   to: number;
-  spotAt: ReturnType<typeof locateOnLadder>;
+  /** When the open window opened, or null if every column has closed. */
+  liveFrom: number | null;
   spotE8: bigint | null;
 }) {
   const { t } = useI18n();
@@ -723,50 +745,100 @@ function Trace({
   );
 
   /**
+   * The two feeds, spliced.
+   *
+   * Candles stop where the trail starts, so the minutes the browser has been
+   * watching are drawn from what it watched and everything before them from what
+   * the exchange reports. They are the same series at two rates, and the join is
+   * just the moment this tab opened.
+   *
+   * The trail is thinned on the way in, and thinned by averaging.
+   *
+   * Drawn at the rate it arrives it was a thicket beside a smooth line, and the
+   * difference was the sampling, not the market: a candle is a minute's close,
+   * so a minute of ticking inside it is invisible by construction, while spot at
+   * a second shows every twenty-dollar jog. Side by side that reads as
+   * volatility arriving, which is a thing the chart would be saying and BTC
+   * would not.
+   *
+   * Keeping one reading per slot fixed the density and kept all of the jitter —
+   * one sample in fifteen carries the full tick noise at a fifteenth of the
+   * detail, which is the worst of both. The slot's mean uses every reading it
+   * has, so what is left is where the price was rather than where it happened to
+   * be sampled. On a ladder where a dollar is two pixels tall, that is the
+   * difference between a line and a tremor.
+   */
+  const points = useMemo(() => {
+    const out: PricePoint[] = [];
+    const trailFrom = trail[0]?.t ?? Infinity;
+
+    for (const candle of candles) {
+      if (candle.time < from || candle.time > now) continue;
+      if (candle.time >= trailFrom) break;
+      out.push({ t: candle.time, usd: candle.close });
+    }
+
+    const open = Math.floor(now / TRAIL_SECONDS);
+    let slot = -Infinity;
+    let sum = 0;
+    let count = 0;
+
+    // The mean sits in the middle of the slot it is the mean of.
+    const flush = () => {
+      if (count > 0) out.push({ t: (slot + 0.5) * TRAIL_SECONDS, usd: sum / count });
+      sum = 0;
+      count = 0;
+    };
+
+    for (const point of trail) {
+      if (point.t < from) continue;
+      const at = Math.floor(point.t / TRAIL_SECONDS);
+      // The slot the clock is still inside is not a point yet: it would move
+      // every second, and the live leg already draws that stretch.
+      if (at >= open) break;
+      if (at !== slot) {
+        flush();
+        slot = at;
+      }
+      sum += point.usd;
+      count += 1;
+    }
+    flush();
+
+    return out;
+  }, [candles, trail, from, now]);
+
+  /** The newest reading. Everything to the right of it is animated, not drawn. */
+  const tail = points[points.length - 1] ?? null;
+  const live = tail !== null && now - tail.t <= 15 * 60;
+
+  /**
    * Segments, not one polyline: a hole in the feed must not be drawn as a move
    * the price never made. A hole is now the only thing that breaks the line —
    * it used to break wherever the price stepped off the visible ladder, which
    * is a fact about the board, not about the feed.
    */
   const segments = useMemo(() => {
-    if (width === 0 || candles.length === 0) return [];
+    if (width === 0 || points.length === 0) return [];
 
     const runs: string[][] = [];
     let run: string[] = [];
     let previous: number | null = null;
 
-    for (const candle of candles) {
-      if (candle.time < from || candle.time > now) continue;
-      // Candles are one minute apart; two missing in a row is a real gap.
-      if (previous !== null && candle.time - previous > 150) {
+    for (const point of points) {
+      // Candles are a minute apart and the trail a second; two missing minutes
+      // is a real gap either way.
+      if (previous !== null && point.t - previous > 150) {
         if (run.length > 1) runs.push(run);
         run = [];
       }
-      run.push(`${toX(candle.time).toFixed(1)},${priceToY(candle.close).toFixed(1)}`);
-      previous = candle.time;
+      run.push(`${toX(point.t).toFixed(1)},${priceToY(point.usd).toFixed(1)}`);
+      previous = point.t;
     }
     if (run.length > 0) runs.push(run);
 
-    /**
-     * The last point is the live price, at now.
-     *
-     * The candle feed runs minutes behind — measured at 224 seconds — so the
-     * line used to stop short of the dot that marks the same price, and the two
-     * disagreed about where BTC was. They are the same series; they should meet.
-     * Now that the board is one scale, meeting them also carries the line over
-     * the lane boundary and into the window that is still open.
-     */
-    if (spotE8 !== null) {
-      const last = runs[runs.length - 1];
-      const y = priceToY(e8ToUsd(spotE8));
-      if (last && previous !== null && now - previous <= 15 * 60) {
-        last.push(`${toX(now).toFixed(1)},${y.toFixed(1)}`);
-      }
-    }
-
-    return runs.filter((points) => points.length > 1).map((points) => points.join(" "));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles, width, rowHeight, strikes, now, spotE8, priceToY, toX, from]);
+    return runs.filter((run) => run.length > 1).map((run) => run.join(" "));
+  }, [points, width, toX, priceToY]);
 
   /**
    * The past lanes, named.
@@ -783,22 +855,116 @@ function Trace({
     return out;
   }, [from]);
 
-  const nowX = toX(now);
+  /**
+   * The tip, animated rather than rendered.
+   *
+   * Everything to the right of the newest reading moves continuously: now slides
+   * left at one second per second, and the price it points at should arrive
+   * rather than jump. Doing that through React would re-render the board sixty
+   * times a second to move four numbers, so the frame loop writes the attributes
+   * itself and React keeps the parts that only change when the data does.
+   */
+  const nowLine = useRef<SVGLineElement>(null);
+  const nowLabel = useRef<SVGTextElement>(null);
+  const beat = useRef<SVGLineElement>(null);
+  const level = useRef<SVGLineElement>(null);
+  const leg = useRef<SVGLineElement>(null);
+  const dot = useRef<SVGCircleElement>(null);
+  const halo = useRef<SVGCircleElement>(null);
+
+  const frame = useRef({
+    width,
+    rowHeight,
+    toX,
+    priceToY,
+    tail,
+    live,
+    spotUsd: null as number | null,
+  });
+  useEffect(() => {
+    frame.current = {
+      width,
+      rowHeight,
+      toX,
+      priceToY,
+      tail,
+      live,
+      spotUsd: spotE8 === null ? null : e8ToUsd(spotE8),
+    };
+  });
+
+  /**
+   * The tip, every frame.
+   *
+   * Easing the tip's y was tried once and taken out: with the drawn line ending
+   * *at* the tip there was no horizontal distance for the lag to resolve over,
+   * so a falling price closed the two into a vertical needle. The line stops at
+   * the last closed slot now, which leaves the live leg fifteen seconds — seven
+   * or eight pixels — to swing through, and over that the lag reads as the
+   * rotation it is. Spot arrives in twenty-dollar steps, forty pixels at this
+   * ladder's spacing; landing them over about a fifth of a second is the
+   * difference between a price that moves and one that teleports.
+   *
+   * Snapped, not eased, when the jump is bigger than a row: that is the ladder
+   * re-centring under the line, and gliding across it would draw a move BTC
+   * never made.
+   */
+  useEffect(() => {
+    let raf = 0;
+    let drawn: number | null = null;
+
+    const paint = () => {
+      raf = requestAnimationFrame(paint);
+      const g = frame.current;
+      if (g.width === 0) return;
+
+      const x = g.toX(Date.now() / 1000);
+      for (const mark of [nowLine.current, beat.current]) {
+        mark?.setAttribute("x1", `${x}`);
+        mark?.setAttribute("x2", `${x}`);
+      }
+      nowLabel.current?.setAttribute("x", `${x + 5}`);
+
+      if (g.spotUsd === null || !g.live || !g.tail) return;
+
+      const target = g.priceToY(g.spotUsd);
+      drawn =
+        drawn === null || Math.abs(target - drawn) > g.rowHeight
+          ? target
+          : drawn + (target - drawn) * 0.22;
+
+      level.current?.setAttribute("y1", `${drawn}`);
+      level.current?.setAttribute("y2", `${drawn}`);
+      leg.current?.setAttribute("x1", `${g.toX(g.tail.t)}`);
+      leg.current?.setAttribute("y1", `${g.priceToY(g.tail.usd)}`);
+      leg.current?.setAttribute("x2", `${x}`);
+      leg.current?.setAttribute("y2", `${drawn}`);
+      for (const mark of [dot.current, halo.current]) {
+        mark?.setAttribute("cx", `${x}`);
+        mark?.setAttribute("cy", `${drawn}`);
+      }
+    };
+
+    raf = requestAnimationFrame(paint);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const tailX = tail ? toX(tail.t) : 0;
 
   return (
     <div
       ref={ref}
       aria-hidden
-      className="pointer-events-none absolute left-0 top-0"
+      className="trace pointer-events-none absolute left-0 top-0"
       style={{ right: AXIS_WIDTH, height }}
     >
       <svg width="100%" height={height} className="block">
         {width > 0 && (
           <defs>
             {/* The wake: older price is fainter. Measured along the line rather
-                than across the box — the line stops at now, and a box-relative
-                gradient would leave it fading toward a place it never reaches. */}
-            <linearGradient id="wake" gradientUnits="userSpaceOnUse" x1={0} x2={nowX} y1={0} y2={0}>
+                than across the box — the line ends at the newest reading, and a
+                box-relative gradient would fade toward a place it never reaches. */}
+            <linearGradient id="wake" gradientUnits="userSpaceOnUse" x1={0} x2={tailX} y1={0} y2={0}>
               <stop offset="0%" stopColor="var(--color-trace)" stopOpacity="0.12" />
               <stop offset="65%" stopColor="var(--color-trace)" stopOpacity="0.55" />
               <stop offset="100%" stopColor="var(--color-trace)" stopOpacity="1" />
@@ -825,12 +991,13 @@ function Trace({
             It stopped at now before, when there was a border there to stop at.
             Carried through, it is the line every strike on the board is a bet
             about — and it lands on the badge already riding the axis. */}
-        {spotAt?.on === "ladder" && (
+        {live && (
           <line
+            ref={level}
             x1={0}
             x2="100%"
-            y1={spotAt.offset * rowHeight}
-            y2={spotAt.offset * rowHeight}
+            y1={-1}
+            y2={-1}
             stroke="var(--color-trace)"
             strokeWidth={1}
             strokeDasharray="2 5"
@@ -850,20 +1017,65 @@ function Trace({
           />
         ))}
 
+        {/* Minutes, inside the open window only.
+            Now crosses this board at about half a pixel a second, which is real
+            movement and unreadable movement: there is nothing beside it to be
+            moving against. Four marks give the open five minutes a ruler, so the
+            gap between the last one crossed and the line is a quantity you can
+            read — and every minute the line visibly clears another. Only here,
+            because this is the only column where the clock is the trade. */}
+        {width > 0 &&
+          liveFrom !== null &&
+          [1, 2, 3, 4].map((minute) => {
+            const x = toX(liveFrom + minute * 60);
+            return (
+              <line
+                key={minute}
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={height}
+                stroke="var(--color-foam)"
+                strokeWidth={1}
+                strokeDasharray="1 7"
+                opacity={0.18}
+              />
+            );
+          })}
+
         {/* Now: a mark inside the open window, not a wall between two panels. */}
         {width > 0 && (
-          <g>
+          <>
             <line
-              x1={nowX}
-              x2={nowX}
+              ref={nowLine}
+              x1={-1}
+              x2={-1}
               y1={0}
               y2={height}
               stroke="var(--color-trace)"
               strokeWidth={1}
               opacity={0.5}
             />
+            {/* The second hand.
+                Half a pixel a second is below the rate anything reads as motion,
+                so the board looked stopped between one countdown tick and the
+                next. This beats once a second in place. It says nothing the
+                countdown does not; it says it at a rate the eye picks up
+                without being read. */}
+            <line
+              ref={beat}
+              className="now-beat"
+              x1={-1}
+              x2={-1}
+              y1={0}
+              y2={22}
+              stroke="var(--color-trace)"
+              strokeWidth={3}
+              strokeLinecap="round"
+            />
             <text
-              x={nowX + 5}
+              ref={nowLabel}
+              x={-1}
               y={12}
               fontSize={9}
               fill="var(--color-trace)"
@@ -871,11 +1083,25 @@ function Trace({
             >
               {t("board.now")}
             </text>
-          </g>
+          </>
         )}
 
-        {spotAt?.on === "ladder" && width > 0 && (
-          <circle cx={nowX} cy={spotAt.offset * rowHeight} r={5} fill="var(--color-trace)" />
+        {/* The last second, and the price at the end of it. */}
+        {live && (
+          <>
+            <line
+              ref={leg}
+              x1={-1}
+              x2={-1}
+              y1={-1}
+              y2={-1}
+              stroke="var(--color-trace)"
+              strokeWidth={2.4}
+              strokeLinecap="round"
+            />
+            <circle ref={halo} className="tip-halo" cx={-1} cy={-1} r={5} fill="var(--color-trace)" />
+            <circle ref={dot} cx={-1} cy={-1} r={5} fill="var(--color-trace)" />
+          </>
         )}
       </svg>
     </div>
@@ -1025,10 +1251,9 @@ function Legend() {
         <span aria-hidden className="inline-block h-3 w-7 rounded-full border-2 rule" />
         <span className="label">{t("board.legendHollow")}</span>
       </span>
-      <span className="flex items-center gap-1.5">
-        <span aria-hidden className="inline-block h-[3px] w-7 rounded-full bg-[var(--color-trace)]" />
-        <span className="label">{t("board.legendTrace")}</span>
-      </span>
+      {/* The line used to need naming. It runs the width of the board now and
+          ends on the price the header is printing, so a swatch for it was one
+          more thing in a row that had four. */}
 
       {/* The board is a grid of buttons and nothing about a grid says so. */}
       <span className="label ml-auto text-[var(--color-foam-dim)]">
