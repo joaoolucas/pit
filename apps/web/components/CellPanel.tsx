@@ -53,11 +53,24 @@ export function legQuotes(legs: BoardCell["legs"]): Record<Side, LegQuote | null
   const build = (option: Side): LegQuote | null => {
     const row = legs[option];
     if (!row) return null;
+
+    const askCents = row.bestAsk ? tickToCents(BigInt(row.bestAsk)) : null;
+    const bidCents = row.bestBid ? tickToCents(BigInt(row.bestBid)) : null;
+    /**
+     * Both sides go, not just the wrong one.
+     *
+     * A bid resting at or above its own ask cannot happen on a book that
+     * matches, so the read is wrong — and there is no way to tell which of the
+     * two prices is the wrong one. Offering the ask anyway would put a Buy
+     * button on a price nobody is offering.
+     */
+    const crossed = askCents !== null && bidCents !== null && bidCents >= askCents;
+
     return {
       side: option,
       market: row.id,
-      askCents: row.bestAsk ? tickToCents(BigInt(row.bestAsk)) : null,
-      bidCents: row.bestBid ? tickToCents(BigInt(row.bestBid)) : null,
+      askCents: crossed ? null : askCents,
+      bidCents: crossed ? null : bidCents,
     };
   };
   return { yes: build("yes"), no: build("no") };

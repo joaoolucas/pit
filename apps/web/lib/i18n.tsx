@@ -46,6 +46,7 @@ const dictionary = {
     "board.legendTrace": "BTC",
     "board.legendHint": "Click a cell to trade it",
     "board.noDepth": "no book",
+    "board.crossed": "bad book",
     "board.cardDepth": "On the book",
     "board.cardMakers": "Quoting",
     "board.cardSpread": "Spread",

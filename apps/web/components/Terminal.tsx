@@ -113,10 +113,11 @@ export function Terminal() {
         outcome: (row.outcome ?? 0) as Outcome,
         cents: read.cents,
         widthCents: read.widthCents,
+        crossed: read.crossed,
         depth,
         makers,
         volume,
-        title: describe(t, clock(endTs), strikeE8, read.cents, read.widthCents, makers),
+        title: describe(t, clock(endTs), strikeE8, read, makers),
         legs,
       });
     }
@@ -248,6 +249,7 @@ export function Terminal() {
 function priceCell(legs: Record<Side, RawCellState | null>): {
   cents: number | null;
   widthCents: number | null;
+  crossed: boolean;
 } {
   const yesBid = legs.yes?.bestBid ? tickToCents(BigInt(legs.yes.bestBid)) : null;
   const yesAsk = legs.yes?.bestAsk ? tickToCents(BigInt(legs.yes.bestAsk)) : null;
@@ -255,19 +257,41 @@ function priceCell(legs: Record<Side, RawCellState | null>): {
   const noAsk = legs.no?.bestAsk ? tickToCents(BigInt(legs.no.bestAsk)) : null;
   const yesLast = legs.yes?.lastPrice ? tickToCents(BigInt(legs.yes.lastPrice)) : null;
 
+  /**
+   * A crossed leg is not a cheap market, it is a broken read.
+   *
+   * The board used to price straight through it. The mid of a bid above its own
+   * ask is meaningless, the width came out negative — the hover card was
+   * printing "-13¢ wide" — and the two legs then summed to well under a dollar,
+   * which the opened cell announced as an arbitrage: *buy both legs and lock
+   * 17¢*. On a board where nine cells in ten were reading that way it was not an
+   * arbitrage, it was an indexer counting one resting order a hundred and fifty
+   * times. Nothing is priced off a book that contradicts itself.
+   */
+  const crossed =
+    (yesBid !== null && yesAsk !== null && yesBid >= yesAsk) ||
+    (noBid !== null && noAsk !== null && noBid >= noAsk);
+  if (crossed) return { cents: null, widthCents: null, crossed: true };
+
   if (yesBid !== null && yesAsk !== null) {
-    return { cents: Math.round((yesBid + yesAsk) / 2), widthCents: yesAsk - yesBid };
+    return { cents: Math.round((yesBid + yesAsk) / 2), widthCents: yesAsk - yesBid, crossed: false };
   }
   // Read the NO book backwards.
   if (noBid !== null && noAsk !== null) {
-    return { cents: Math.round(100 - (noBid + noAsk) / 2), widthCents: noAsk - noBid };
+    return {
+      cents: Math.round(100 - (noBid + noAsk) / 2),
+      widthCents: noAsk - noBid,
+      crossed: false,
+    };
   }
-  if (yesLast !== null) return { cents: yesLast, widthCents: null };
-  if (yesAsk !== null) return { cents: yesAsk, widthCents: null };
-  if (yesBid !== null) return { cents: yesBid, widthCents: null };
-  if (noAsk !== null) return { cents: 100 - noAsk, widthCents: null };
-  if (noBid !== null) return { cents: 100 - noBid, widthCents: null };
-  return { cents: null, widthCents: null };
+
+  const one = (cents: number) => ({ cents, widthCents: null, crossed: false });
+  if (yesLast !== null) return one(yesLast);
+  if (yesAsk !== null) return one(yesAsk);
+  if (yesBid !== null) return one(yesBid);
+  if (noAsk !== null) return one(100 - noAsk);
+  if (noBid !== null) return one(100 - noBid);
+  return { cents: null, widthCents: null, crossed: false };
 }
 
 /** Everything a hover should say about a tile, assembled once. */
@@ -275,8 +299,7 @@ function describe(
   t: ReturnType<typeof useI18n>["t"],
   time: string,
   strikeE8: bigint,
-  cents: number | null,
-  widthCents: number | null,
+  read: ReturnType<typeof priceCell>,
   makers: number,
 ): string {
   const claim = t("cell.claim", {
@@ -284,8 +307,9 @@ function describe(
   });
 
   const parts = [`${claim} · ${t("cell.closes", { time })}`];
-  if (cents !== null) parts.push(formatCents(cents));
-  if (widthCents !== null) parts.push(t("board.titleWidth", { width: `${widthCents}¢` }));
+  if (read.crossed) parts.push(t("board.crossed"));
+  if (read.cents !== null) parts.push(formatCents(read.cents));
+  if (read.widthCents !== null) parts.push(t("board.titleWidth", { width: `${read.widthCents}¢` }));
   if (makers > 0) parts.push(t("board.titleMakers", { makers }));
   return parts.join(" · ");
 }

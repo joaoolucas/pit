@@ -610,6 +610,13 @@ function Tile({
           title={t("board.settling")}
           className="orb inline-block size-2.5 bg-[var(--color-live)]"
         />
+      ) : cell.crossed ? (
+        // Not the same as unquoted, and saying so matters: a hollow cell is a
+        // market waiting for a maker, this one is a market whose book cannot be
+        // read. Both are untradeable; only one is anybody's fault.
+        <span className="label text-[9px] leading-none text-[var(--color-no)]">
+          {t("board.crossed")}
+        </span>
       ) : cents === null ? (
         // "–" made an unquoted market look like a rendering gap. It is a market
         // with nobody on either side, and the legend already promises that a
