@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { PRICE_POLL_MS } from "./config";
 
 export type Candle = { time: number; low: number; high: number; open: number; close: number };
+/** One reading of spot, at the second it arrived. */
+export type PricePoint = { t: number; usd: number };
 
 /** Spot, on the same 1e8 scale the contracts use. */
 export function useSpot(pair = "BTC-USD") {
@@ -39,7 +41,44 @@ export function useSpot(pair = "BTC-USD") {
   return { priceE8, error };
 }
 
-/** One-minute candles, refreshed slowly — this is the context line, not a feed. */
+/**
+ * The last stretch of spot, kept as it arrives.
+ *
+ * The candle feed is one point a minute and runs a couple of minutes behind, so
+ * the newest part of the line — the part drawn over the window actually being
+ * traded — was a single straight segment between two stale readings. Spot lands
+ * every second. Kept, it gives that stretch a shape, which is the difference
+ * between a chart that updates and a chart that is live. How much of that shape
+ * is worth drawing is the board's decision, not this one's: see `points` in
+ * Trace, which thins it to something a pixel can hold.
+ *
+ * Bounded by time rather than by count, so a tab left open overnight holds the
+ * same few minutes as one just opened.
+ */
+export function useSpotTrail(priceE8: bigint | null, keepSeconds = 15 * 60) {
+  const [trail, setTrail] = useState<PricePoint[]>([]);
+
+  useEffect(() => {
+    if (priceE8 === null) return;
+    const usd = Number(priceE8) / 1e8;
+    const at = Date.now() / 1000;
+
+    setTrail((previous) => {
+      const last = previous[previous.length - 1];
+      // Two readings inside the same second say nothing the first did not.
+      if (last && last.usd === usd && at - last.t < 1) return previous;
+
+      const next = [...previous, { t: at, usd }];
+      const cut = at - keepSeconds;
+      const first = next.findIndex((point) => point.t >= cut);
+      return first > 0 ? next.slice(first) : next;
+    });
+  }, [priceE8, keepSeconds]);
+
+  return trail;
+}
+
+/** One-minute candles, refreshed slowly — the older half of the same line. */
 export function useCandles(pair = "BTC-USD") {
   const [candles, setCandles] = useState<Candle[]>([]);
 

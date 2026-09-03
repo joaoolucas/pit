@@ -29,7 +29,14 @@ export const UNDERLYING = "BTC-USD" as const;
  *  slowest poll that still feels live, and it keeps a browser tab honest. */
 export const GRID_POLL_MS = 1200;
 export const CELL_POLL_MS = 700;
-export const PRICE_POLL_MS = 3000;
+/**
+ * Spot drives the live tip of the price line, so this is a drawing rate as much
+ * as a data rate: it sets how long a move can sit on the wire before the board
+ * shows it. The proxy holds a reading for 800ms and collapses concurrent calls,
+ * so every client on a deployment costs the upstream about one call a second
+ * between them however many of them there are.
+ */
+export const PRICE_POLL_MS = 1000;
 
 export const isConfigured = Boolean(pitFactoryAddress && collateralAddress);
 
