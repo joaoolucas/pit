@@ -200,9 +200,29 @@ export type TradeEvent = {
 
 export async function applyOrderCreated(store: Store, event: OrderCreatedEvent): Promise<void> {
   const market = marketId(event.market);
+  const id = orderKey(market, event.orderId);
+
+  /**
+   * The same log twice is not a second order.
+   *
+   * `Order.set` is keyed, so a replay overwrote the row harmlessly and nobody
+   * noticed — but `addDepth` and `addMakerOrder` are increments, and they ran
+   * again. `applyOrdersCanceled` has had the matching guard from the start (it
+   * skips an order that is not open), so a replayed create added a level and a
+   * replayed cancel took nothing off. The books drifted one way only.
+   *
+   * A dev harness reading a block range twice found it first, at a hundred and
+   * fifty-one copies of one resting order. Envio delivers a log once, so this
+   * cannot happen there in the ordinary case — but a reorg replays, and a
+   * re-index replays everything, and the correction for a fold that only counts
+   * upward is to drop the database. Matching on the transaction is exact: the
+   * same order id from the same transaction is the same event.
+   */
+  const seen = await store.Order.get(id);
+  if (seen && seen.txHash === event.txHash) return;
 
   store.Order.set({
-    id: orderKey(market, event.orderId),
+    id,
     market_id: market,
     orderId: event.orderId,
     owner: lower(event.owner),

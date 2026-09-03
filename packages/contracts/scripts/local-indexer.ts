@@ -72,10 +72,24 @@ async function main() {
     return cached;
   };
 
+  /**
+   * How many blocks one pass reads.
+   *
+   * The range used to be "everything since the cursor", which is fine while the
+   * indexer keeps up and impossible when it has to start cold: a chain a few
+   * hours old holds two hundred thousand logs, and asking for them in one call
+   * ended in `read ECONNRESET` — every pass, on the same range, so the cursor
+   * never moved and the board never filled. Bounded, a cold start is a few
+   * seconds a chunk and the cursor keeps what it has already read.
+   */
+  const CHUNK = Number(process.env.LOCAL_INDEXER_CHUNK ?? 2_000);
+
   const sync = async () => {
     const head = await provider.getBlockNumber();
-    if (head < cursor) return;
+    while (cursor <= head) await syncRange(cursor, Math.min(cursor + CHUNK - 1, head));
+  };
 
+  const syncRange = async (from: number, to: number) => {
     // Two phases, because a window's markets are created in the same range as
     // their first orders. Asking for logs from an address list that does not yet
     // contain those markets silently drops every order in the batch — which is
@@ -84,8 +98,8 @@ async function main() {
     //
     // Phase 1: read the factory alone and learn which markets exist.
     const discovery = await provider.getLogs({
-      fromBlock: cursor,
-      toBlock: head,
+      fromBlock: from,
+      toBlock: to,
       address: deployment.pitFactory,
     });
     for (const log of discovery) {
@@ -97,8 +111,8 @@ async function main() {
 
     // Phase 2: read everything, in order, and apply it once.
     const logs = await provider.getLogs({
-      fromBlock: cursor,
-      toBlock: head,
+      fromBlock: from,
+      toBlock: to,
       address: [deployment.pitFactory, ...markets],
     });
 
@@ -148,7 +162,10 @@ async function main() {
       }
     }
 
-    cursor = head + 1;
+    // Only after the range is applied: a throw here leaves the cursor where the
+    // work actually got to, and the next pass picks up the same chunk rather
+    // than the whole history again.
+    cursor = to + 1;
   };
 
   async function handleFactoryLog(log: { topics: readonly string[]; data: string }, block: { number: number; timestamp: number }) {
@@ -199,8 +216,36 @@ async function main() {
     }
   }
 
-  await sync();
-  setInterval(() => void sync().catch((error) => console.error("sync:", error.message)), POLL_MS);
+  /**
+   * One sync at a time.
+   *
+   * `setInterval` fires on the clock, not on completion, and the cursor only
+   * moves once a range has been applied — so a pass that outlasts the interval
+   * had the next one start on the same blocks and apply the same logs again. The
+   * roller quotes about a hundred and eighty books a tick, which is a burst that
+   * takes seconds to read, so passes stacked several deep.
+   *
+   * `applyOrdersCanceled` ignores an order it has already closed, and
+   * `applyOrderCreated` did not have the matching guard, so every replay added
+   * the order's size to its level and never took it off: one book here was
+   * holding a hundred and fifty-one copies of the same resting order against
+   * forty-seven events on the chain, with three generations of quote crossing
+   * each other. The fold is idempotent now and this cannot cause it — but a
+   * dev harness reading the same blocks twice is wrong on its own terms.
+   *
+   * Scheduled after the work instead of alongside it: a slow pass delays the
+   * next one rather than racing it.
+   */
+  const loop = async () => {
+    try {
+      await sync();
+    } catch (error) {
+      console.error("sync:", (error as Error).message);
+    }
+    setTimeout(() => void loop(), POLL_MS);
+  };
+
+  await loop();
 
   http
     .createServer((request, response) => {

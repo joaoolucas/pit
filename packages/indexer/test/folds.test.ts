@@ -104,6 +104,45 @@ test("a quoted two-sided market shows the right best bid, best ask and depth", a
   assert.equal(cell.makers, 1, "one address quoting both sides is one maker, not two");
 });
 
+test("the same create replayed is the same order, not a second one", async () => {
+  const { store, row } = makeStore();
+  seedCell(store);
+
+  const quote = {
+    market: MARKET,
+    orderId: 1n,
+    owner: MAKER_A,
+    size: size(200),
+    price: tick(0.4),
+    isBuy: true,
+    txHash: "0xa1",
+    block: block(10, 1_000),
+  };
+
+  await applyOrderCreated(store, quote);
+  await applyOrderCreated(store, quote);
+  await applyOrderCreated(store, quote);
+
+  const cell = row<CellStateRow>("CellState", MARKET.toLowerCase())!;
+  assert.equal(cell.bidDepth, size(200), "depth counts the order once however often the log arrives");
+  assert.equal(cell.makers, 1);
+
+  // And the cancel still clears it. Without the guard the level kept two thirds
+  // of a phantom book after the order that made it was gone — which is how a
+  // stale ask ends up resting under a live bid.
+  await applyOrdersCanceled(store, {
+    market: MARKET,
+    orderIds: [1n],
+    owner: MAKER_A,
+    txHash: "0xa2",
+    block: block(11, 1_010),
+  });
+
+  const cleared = row<CellStateRow>("CellState", MARKET.toLowerCase())!;
+  assert.equal(cleared.bidDepth, 0n, "a cancelled order leaves no depth behind");
+  assert.equal(cleared.bestBid, undefined);
+});
+
 test("a taker lifting the offer moves depth, tape and CVD together", async () => {
   const { store, row, rows } = makeStore();
   seedCell(store);
