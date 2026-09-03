@@ -180,6 +180,32 @@ body {
   background: color-mix(in oklab, var(--color-foam) 13%, transparent);
 }
 
+/*
+ * The part of the open window that is already gone.
+ *
+ * The board's one hard edge used to be the join between the price line and the
+ * chain: past on one side, future on the other, a border drawn between them.
+ * The clock has no such edge. The live column opened minutes ago and is being
+ * traded now, so the boundary belongs *inside* it — where it moves, and where
+ * the line can cross it. Washed rather than ruled, so the change of state reads
+ * as a dissolve and not as another wall.
+ */
+.cell.spent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Over the paint, under the number: .cell isolates, so -1 stays in the cell
+     and the multiple it exists to show is never veiled. */
+  z-index: -1;
+  background: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--color-deep) 62%, transparent) 0,
+    color-mix(in oklab, var(--color-deep) 30%, transparent) var(--spent, 0%),
+    transparent var(--spent, 0%)
+  );
+  pointer-events: none;
+}
+
 /* At-the-money: a soft sky wash, not a spreadsheet highlight. */
 .atm {
   background: color-mix(in oklab, var(--color-trace) 9%, transparent);

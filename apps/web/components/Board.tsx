@@ -24,17 +24,24 @@ import type { BoardCell } from "./types";
 const MIN_ROW_HEIGHT = 72;
 /** The strike axis, on the right, where a chart puts its price scale. */
 const AXIS_WIDTH = 106;
-/** Minutes of realised price kept to the left of now. */
-const TRACE_MINUTES = 30;
 /**
- * How much of the width the realised price gets.
+ * How many lanes of history sit to the left of the chain.
  *
- * The chain is the product, so it takes the larger share; the trace only has to
- * be wide enough to read the shape of the last half hour. Both the head row and
- * the body use this constant, which is the only thing keeping their columns
- * lined up.
+ * The trace used to be a panel of its own: a fixed 28% of the width, ruled on a
+ * ten-minute pitch, showing the last half hour ending at now. That made two
+ * boards out of one. The lattices never met — the chain's columns are five
+ * minutes wide and the trace's ticks were ten — and worse, the trace's last
+ * minutes are the *same* minutes as the columns beside it, drawn a second time
+ * at a different x. A join between two clocks that disagree can only be a wall.
+ *
+ * There is one lattice now. Every lane on this board, past or future, is one
+ * five-minute window wide, and the trace is simply the six windows before the
+ * first column opens. The price is drawn over that shared grid and carries on
+ * into the live column, which is where the price actually is.
  */
-const TRACE_WIDTH = "28%";
+const PAST_LANES = 6;
+/** Minutes of realised price the past lanes cover. */
+const TRACE_MINUTES = (PAST_LANES * WINDOW_SECONDS) / 60;
 /**
  * No gap between cells.
  *
@@ -174,23 +181,43 @@ export function Board({
     );
   }
 
-  const chainTemplate = `repeat(${columns.length}, minmax(78px, 1fr)) ${AXIS_WIDTH}px`;
+  const laneCount = PAST_LANES + columns.length;
+  /** One template for the head and the body: equal lanes, then the strike axis. */
+  const boardTemplate = `repeat(${laneCount}, minmax(78px, 1fr)) ${AXIS_WIDTH}px`;
+
+  /**
+   * The board's clock, as one linear scale.
+   *
+   * Lane 0 opens `PAST_LANES` windows before the first column and the last lane
+   * closes on the last expiry, so an instant has exactly one x on this surface
+   * whether it has happened yet or not. Everything drawn over the grid — the
+   * price line, the now mark — reads its position off these two numbers.
+   */
+  const boardFrom = columns[0]! - WINDOW_SECONDS * (1 + PAST_LANES);
+  const boardTo = columns[columns.length - 1]!;
+
+  /** How much of the live window is already spent. */
+  const liveElapsed =
+    liveIndex === -1
+      ? 0
+      : Math.min(Math.max(1 - (columns[liveIndex]! - now) / WINDOW_SECONDS, 0), 1);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Heads: the clock, which is the other half of every market here. */}
-      <div className="flex shrink-0 border-b rule">
+      <div className="shrink-0 border-b rule">
         <div
-          className="flex min-w-0 shrink-0 items-end justify-between px-3 pb-1.5 pt-2"
-          style={{ width: TRACE_WIDTH }}
+          className="grid min-w-0"
+          style={{ gridTemplateColumns: boardTemplate, gap: BOARD_GAP }}
         >
-          <span className="label">{t("board.realised", { minutes: TRACE_MINUTES })}</span>
-          <span className="label hidden sm:inline">{t("board.now")}</span>
-        </div>
-        <div
-          className="grid min-w-0 flex-1"
-          style={{ gridTemplateColumns: chainTemplate, gap: BOARD_GAP }}
-        >
+          {/* The past lanes answer to one heading. What each of them is called
+              is written on the board itself, in line with the column heads. */}
+          <div
+            className="flex min-w-0 items-end px-3 pb-1.5 pt-2"
+            style={{ gridColumn: `span ${PAST_LANES}` }}
+          >
+            <span className="label">{t("board.realised", { minutes: TRACE_MINUTES })}</span>
+          </div>
           {columns.map((endTs, index) => (
             <ColumnHead
               key={endTs}
@@ -215,20 +242,11 @@ export function Board({
         ref={bodyRef}
         onScroll={clearAim}
         onMouseLeave={clearAim}
-        className="flex min-h-0 flex-1 overflow-y-auto"
+        className="relative min-h-0 flex-1 overflow-y-auto"
       >
-        <Trace
-          candles={candles}
-          strikes={strikes}
-          rowHeight={rowHeight}
-          now={now}
-          spotAt={spotAt}
-          spotE8={spotE8}
-        />
-
         <div
-          className="grid min-w-0 flex-1 content-start"
-          style={{ gridTemplateColumns: chainTemplate, gap: BOARD_GAP, rowGap: BOARD_GAP }}
+          className="grid min-w-0 content-start"
+          style={{ gridTemplateColumns: boardTemplate, gap: BOARD_GAP, rowGap: BOARD_GAP }}
         >
           {strikes.map((strikeE8, row) => {
             const atm = spotAt?.on === "ladder" && Math.floor(spotAt.offset) === row;
@@ -238,6 +256,8 @@ export function Board({
                 strikeE8={strikeE8}
                 row={row}
                 columns={columns}
+                liveIndex={liveIndex}
+                liveElapsed={liveElapsed}
                 cells={cells}
                 maxDepth={maxDepth}
                 rowHeight={rowHeight}
@@ -252,6 +272,20 @@ export function Board({
             );
           })}
         </div>
+
+        {/* The price, over the grid rather than beside it: same lanes, same
+            rows. It passes through the levels it is being traded against and
+            carries on into the window that is still open. */}
+        <Trace
+          candles={candles}
+          strikes={strikes}
+          rowHeight={rowHeight}
+          now={now}
+          from={boardFrom}
+          to={boardTo}
+          spotAt={spotAt}
+          spotE8={spotE8}
+        />
       </div>
 
       <Legend />
@@ -331,6 +365,8 @@ function StrikeRow({
   strikeE8,
   row,
   columns,
+  liveIndex,
+  liveElapsed,
   cells,
   maxDepth,
   rowHeight,
@@ -345,6 +381,8 @@ function StrikeRow({
   strikeE8: bigint;
   row: number;
   columns: number[];
+  liveIndex: number;
+  liveElapsed: number;
   cells: Map<string, BoardCell>;
   maxDepth: bigint;
   rowHeight: number;
@@ -361,6 +399,31 @@ function StrikeRow({
 
   return (
     <>
+      {/* The past, on the chain's own lanes.
+          These hold no market — they are the grid the price is drawn on. Ruling
+          them exactly like a cell is the whole fix: the verticals now fall on
+          the five-minute lattice the columns are already on, so they run the
+          width of the board without changing pitch or stopping at a border. The
+          row's wash and crosshair run through them too, so pointing at a market
+          lights the strike all the way back through the price that made it. */}
+      {Array.from({ length: PAST_LANES }, (_, lane) => (
+        <div
+          key={`past-${lane}`}
+          aria-hidden
+          onMouseEnter={(event) =>
+            onAim({
+              row,
+              // No column: the past belongs to no expiry, so no head lights up.
+              column: -1,
+              cell: null,
+              rect: event.currentTarget.getBoundingClientRect(),
+            })
+          }
+          className={`cell border-b border-l rule ${atm ? "atm" : ""} ${aimedRow ? "aimed" : ""}`}
+          style={{ height: rowHeight }}
+        />
+      ))}
+
       {columns.map((endTs, index) => {
         const key = cellId(endTs, strikeE8);
         return (
@@ -371,6 +434,7 @@ function StrikeRow({
             rowHeight={rowHeight}
             closed={endTs <= now}
             atm={atm}
+            spent={index === liveIndex ? liveElapsed : null}
             row={row}
             column={index}
             selected={key === selectedId}
@@ -434,12 +498,17 @@ function fillFor(ink: TileInk): string {
   return `color-mix(in oklab, ${hue} ${alpha}%, transparent)`;
 }
 
+/** The spent fraction, as the custom property the wash reads. */
+const spentPercent = (spent: number | null) =>
+  spent === null ? undefined : `${(spent * 100).toFixed(1)}%`;
+
 function Tile({
   cell,
   maxDepth,
   rowHeight,
   closed,
   atm,
+  spent,
   row,
   column,
   selected,
@@ -452,6 +521,14 @@ function Tile({
   rowHeight: number;
   closed: boolean;
   atm: boolean;
+  /**
+   * How much of this cell's window has already gone, or null off the live
+   * column. The board's one hard edge used to be the join between the trace and
+   * the chain; the clock has no such edge, because the open window is half
+   * spent already. Drawing that inside the column puts the boundary where it
+   * belongs — moving, and crossable by the price line.
+   */
+  spent: number | null;
   row: number;
   column: number;
   selected: boolean;
@@ -474,8 +551,10 @@ function Tile({
       <div
         aria-hidden
         onMouseEnter={take}
-        className={`cell border-b border-l rule ${atm ? "atm" : ""} ${aimed ? "aimed" : ""}`}
-        style={{ height: rowHeight }}
+        className={`cell border-b border-l rule ${atm ? "atm" : ""} ${aimed ? "aimed" : ""} ${
+          spent === null ? "" : "spent"
+        }`}
+        style={{ height: rowHeight, "--spent": spentPercent(spent) } as React.CSSProperties}
       />
     );
   }
@@ -495,11 +574,12 @@ function Tile({
       onBlur={() => onAim(null)}
       className={`tile cell sweep flex flex-col items-center justify-center gap-1 border-b border-l rule ${
         atm ? "atm" : ""
-      } ${aimed ? "aimed" : ""}`}
+      } ${aimed ? "aimed" : ""} ${spent === null ? "" : "spent"}`}
       style={
         {
           height: rowHeight,
           "--fill": fillFor(ink),
+          "--spent": spentPercent(spent),
           animationDelay: `${Math.min(column * 45, 400)}ms`,
         } as React.CSSProperties
       }
@@ -558,18 +638,25 @@ function Resolved({ outcome }: { outcome: Outcome }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Where the price has been.
+ * Where the price has been, drawn on the board's own grid.
  *
- * Drawn as a trace with a wake: the recent past at full strength, older minutes
- * fading, because on a five-minute market the last thirty seconds carry most of
- * the information. Rows line up with the chain's strikes, so the trace visibly
- * passes through the levels it is being traded against.
+ * A layer over the chain, not a panel beside it. The lanes underneath are five
+ * minutes each and so is this scale, so an instant lands at the same x whether
+ * it falls in a past lane or in a column the chain is still quoting. That is
+ * what lets the line run *into* the live window instead of stopping dead at a
+ * border, and what makes a closed column show the path that settled it.
+ *
+ * It rules nothing. Rows and lanes are the cells' own edges — the same hairline
+ * across the whole surface — so all that is drawn here is the price, the level
+ * it is at, and now.
  */
 function Trace({
   candles,
   strikes,
   rowHeight,
   now,
+  from,
+  to,
   spotAt,
   spotE8,
 }: {
@@ -577,16 +664,20 @@ function Trace({
   strikes: bigint[];
   rowHeight: number;
   now: number;
+  /** Board time at x = 0: `PAST_LANES` windows before the first column opens. */
+  from: number;
+  /** Board time at the right edge of the lanes: the last expiry on the board. */
+  to: number;
   spotAt: ReturnType<typeof locateOnLadder>;
   spotE8: bigint | null;
 }) {
+  const { t } = useI18n();
   const clock = useClock();
   const { ref, width } = useMeasured<HTMLDivElement>();
 
-
   const height = strikes.length * rowHeight;
-  const from = now - TRACE_MINUTES * 60;
-  const toX = (unix: number) => ((unix - from) / (now - from)) * width;
+  const span = Math.max(to - from, 1);
+  const toX = useCallback((unix: number) => ((unix - from) / span) * width, [from, span, width]);
 
   const ladder = useMemo(() => strikes.map(e8ToUsd), [strikes]);
 
@@ -659,86 +750,81 @@ function Trace({
     /**
      * The last point is the live price, at now.
      *
-     * The candle feed runs minutes behind — measured at 224 seconds, an eighth
-     * of this window — so the line used to stop short of the dot that marks the
-     * same price, and the two disagreed about where BTC was. They are the same
-     * series; they should meet.
+     * The candle feed runs minutes behind — measured at 224 seconds — so the
+     * line used to stop short of the dot that marks the same price, and the two
+     * disagreed about where BTC was. They are the same series; they should meet.
+     * Now that the board is one scale, meeting them also carries the line over
+     * the lane boundary and into the window that is still open.
      */
     if (spotE8 !== null) {
       const last = runs[runs.length - 1];
       const y = priceToY(e8ToUsd(spotE8));
       if (last && previous !== null && now - previous <= 15 * 60) {
-        last.push(`${(width - 1).toFixed(1)},${y.toFixed(1)}`);
+        last.push(`${toX(now).toFixed(1)},${y.toFixed(1)}`);
       }
     }
 
     return runs.filter((points) => points.length > 1).map((points) => points.join(" "));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles, width, rowHeight, strikes, now, spotE8, priceToY]);
+  }, [candles, width, rowHeight, strikes, now, spotE8, priceToY, toX, from]);
 
+  /**
+   * The past lanes, named.
+   *
+   * On the five-minute lattice, which is the only pitch on this board now — the
+   * ten-minute marks the trace used to keep were the visible half of it being a
+   * chart of its own. The column heads name the future, so these stop where the
+   * chain starts and the axis reads as one run of times.
+   */
   const ticks = useMemo(() => {
     const out: number[] = [];
-    const step = 10 * 60;
-    for (let ts = Math.ceil(from / step) * step; ts <= now; ts += step) out.push(ts);
+    const firstOpen = from + PAST_LANES * WINDOW_SECONDS;
+    for (let ts = from; ts < firstOpen; ts += WINDOW_SECONDS) out.push(ts);
     return out;
-  }, [from, now]);
+  }, [from]);
+
+  const nowX = toX(now);
 
   return (
-    <div ref={ref} className="relative shrink-0" style={{ width: TRACE_WIDTH }}>
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute left-0 top-0"
+      style={{ right: AXIS_WIDTH, height }}
+    >
       <svg width="100%" height={height} className="block">
-        <defs>
-          {/* The wake: older price is fainter. */}
-          <linearGradient id="wake" x1="0" x2="1">
-            <stop offset="0%" stopColor="var(--color-trace)" stopOpacity="0.12" />
-            <stop offset="65%" stopColor="var(--color-trace)" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="var(--color-trace)" stopOpacity="1" />
-          </linearGradient>
-        </defs>
+        {width > 0 && (
+          <defs>
+            {/* The wake: older price is fainter. Measured along the line rather
+                than across the box — the line stops at now, and a box-relative
+                gradient would leave it fading toward a place it never reaches. */}
+            <linearGradient id="wake" gradientUnits="userSpaceOnUse" x1={0} x2={nowX} y1={0} y2={0}>
+              <stop offset="0%" stopColor="var(--color-trace)" stopOpacity="0.12" />
+              <stop offset="65%" stopColor="var(--color-trace)" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="var(--color-trace)" stopOpacity="1" />
+            </linearGradient>
+          </defs>
+        )}
 
-        {/* Strike rows, continued into the past so the trace reads against them. */}
-        {strikes.map((strike, row) => (
-          <line
-            key={strike.toString()}
-            x1={0}
-            x2="100%"
-            y1={(row + 1) * rowHeight}
-            y2={(row + 1) * rowHeight}
-            stroke="var(--color-rule)"
-            strokeWidth={1}
-          />
-        ))}
-
-        {/* Ten-minute marks. */}
+        {/* The times the past lanes cover, in line with the column heads above. */}
         {width > 0 &&
           ticks.map((ts) => (
-            <g key={ts}>
-              <line
-                x1={toX(ts)}
-                x2={toX(ts)}
-                y1={0}
-                y2={height}
-                stroke="var(--color-rule)"
-                strokeWidth={1}
-                opacity={0.55}
-              />
-              {/* Labelled at the top, under the head row: the bottom of this
-                  SVG is wherever the ladder happens to end, which put the time
-                  axis in the middle of the scroll and straight through the
-                  price line. */}
-              <text
-                x={toX(ts) + 4}
-                y={12}
-                fontSize={9}
-                fill="var(--color-foam-faint)"
-                fontFamily="var(--font-data)"
-              >
-                {clock(ts)}
-              </text>
-            </g>
+            <text
+              key={ts}
+              x={toX(ts) + 5}
+              y={12}
+              fontSize={9}
+              fill="var(--color-foam-faint)"
+              fontFamily="var(--font-data)"
+            >
+              {clock(ts)}
+            </text>
           ))}
 
-        {/* Spot, level across the past only: the price has not been to the
-            future yet, and drawing it there would say otherwise. */}
+        {/* Spot, level across the whole board.
+            It stopped at now before, when there was a border there to stop at.
+            Carried through, it is the line every strike on the board is a bet
+            about — and it lands on the badge already riding the axis. */}
         {spotAt?.on === "ladder" && (
           <line
             x1={0}
@@ -764,9 +850,32 @@ function Trace({
           />
         ))}
 
-        {/* Now. */}
+        {/* Now: a mark inside the open window, not a wall between two panels. */}
+        {width > 0 && (
+          <g>
+            <line
+              x1={nowX}
+              x2={nowX}
+              y1={0}
+              y2={height}
+              stroke="var(--color-trace)"
+              strokeWidth={1}
+              opacity={0.5}
+            />
+            <text
+              x={nowX + 5}
+              y={12}
+              fontSize={9}
+              fill="var(--color-trace)"
+              fontFamily="var(--font-data)"
+            >
+              {t("board.now")}
+            </text>
+          </g>
+        )}
+
         {spotAt?.on === "ladder" && width > 0 && (
-          <circle cx={width - 1} cy={spotAt.offset * rowHeight} r={5} fill="var(--color-trace)" />
+          <circle cx={nowX} cy={spotAt.offset * rowHeight} r={5} fill="var(--color-trace)" />
         )}
       </svg>
     </div>
