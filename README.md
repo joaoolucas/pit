@@ -11,7 +11,8 @@ Each cell asks one question — *will BTC be above $77,250 at 1:05?* — and eac
 cell is a pair of ERC-20s listed as spot markets on [Kuru](https://kuru.io)'s
 onchain CLOB. Click one and you get the live book, the tape, and the address
 standing on it. Place, cancel, or **quote it yourself**, through Kuru.
-Settlement is a Chainlink CRE workflow writing onchain.
+Settlement is a Chainlink CRE workflow writing onchain — proven end to end in
+simulation, and holding the deploy key's roles until Chainlink grants DON access.
 
 No mock books. No static JSON. If Kuru is down, Pit is down.
 
@@ -149,6 +150,15 @@ Both receivers are ERC-165 `IReceiver`, gated on the Forwarder, and loop in a
 `try/catch` so one already-done cell cannot sink the batch. See
 [`packages/cre/README.md`](packages/cre/README.md).
 
+Where this actually stands: `cre workflow simulate` runs the whole loop — the
+Coinbase fetch under median consensus, both factory reads, and both signed
+reports — against the deployed testnet contracts, and passes. It has not run on
+a DON, because deploy access is granted per account by Chainlink and ours was
+declined. That gates `cre workflow deploy` and the Forwarder address, and
+nothing else: the receivers are deployed, the reports are the ones the workflow
+builds, and until a Forwarder exists the deploy key keeps both roles, so the
+board runs. What is unproven is a live DON write, not the workflow.
+
 ### Mera — one passkey, many keys, and *not* the wallet
 
 The PRF output derived here never becomes a signing key and never touches a
@@ -231,6 +241,12 @@ the next columns from the same price, every 30 seconds. `tick` is the seeder —
 quoting is a participant, not infrastructure — and once `setSettler` /
 `setOperator` point at the receivers, its first two stages report that CRE owns
 them and do nothing, which is the correct steady state.
+
+That last step is pending: pointing the roles at the receivers requires a
+Forwarder, which requires deploy access, which Chainlink declined. So today all
+three stages of `tick` run, which is the documented fallback rather than a
+workaround — the deploy key was never handed over precisely so a demo could not
+be blocked on CRE being live.
 
 ---
 

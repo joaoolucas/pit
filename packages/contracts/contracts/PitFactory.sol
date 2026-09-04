@@ -89,7 +89,8 @@ contract PitFactory is Ownable2Step, ReentrancyGuard {
     ///         sender (a Forwarder in production).
     address public settler;
 
-    /// @notice Address allowed to open new windows.
+    /// @notice Address allowed to open new windows. The roller and CRE still use
+    ///         this; listing itself is permissionless so a click can pay its own gas.
     address public operator;
 
     /// @notice Grace period after endTs before anyone may void a stuck window and let
@@ -172,7 +173,7 @@ contract PitFactory is Ownable2Step, ReentrancyGuard {
             maxSize: 1e14,
             takerFeeBps: 0,
             makerFeeBps: 0,
-            kuruAmmSpread: 500 // widest allowed; Pit never funds the Kuru AMM vault
+            kuruAmmSpread: 100 // 1%; Kuru rejects wider (InvalidSpread)
         });
 
         emit SettlerUpdated(address(0), settler_);
@@ -227,9 +228,11 @@ contract PitFactory is Ownable2Step, ReentrancyGuard {
     /// @param strikeE8   Settles YES when price(endTs) > strikeE8. For the 5m up/down
     ///                   cell the roller passes spot at creation time, which makes
     ///                   up/down exactly the at-the-money row of the same ladder.
+    /// @notice Open a window and list both legs on Kuru. Anyone may call: the
+    ///         caller pays the listing gas. The operator/CRE still open the ATM
+    ///         band so the board is never empty; a click opens a wing.
     function createWindow(bytes32 underlying, uint64 startTs, uint64 endTs, uint256 strikeE8)
         external
-        onlyOperator
         returns (uint256 windowId)
     {
         if (endTs <= startTs) revert BadWindowTimes();

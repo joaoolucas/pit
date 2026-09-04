@@ -95,10 +95,25 @@ describe("PitFactory", () => {
       expect(missing).to.equal(false);
     });
 
-    it("is operator-gated", async () => {
-      await expect(
-        factory.connect(stranger).createWindow(BTC_USD, startTs, endTs, strikeE8),
-      ).to.be.revertedWithCustomError(factory, "NotOperator");
+    it("lets anyone list a window", async () => {
+      await expect(factory.connect(stranger).createWindow(BTC_USD, startTs, endTs, strikeE8))
+        .to.emit(factory, "WindowCreated")
+        .withArgs(0n, BTC_USD, startTs, endTs, strikeE8, anyAddress, anyAddress, anyAddress, anyAddress);
+    });
+
+    it("clones legs so two windows do not share supply", async () => {
+      await factory.createWindow(BTC_USD, startTs, endTs, strikeE8);
+      await factory.createWindow(BTC_USD, startTs, endTs + 300, strikeE8);
+      const w0 = await factory.getWindow(0);
+      const w1 = await factory.getWindow(1);
+      expect(w0.yes).to.not.equal(w1.yes);
+
+      const yes0 = await ethers.getContractAt("OutcomeToken", w0.yes);
+      const yes1 = await ethers.getContractAt("OutcomeToken", w1.yes);
+      await factory.connect(maker).mintSet(0, 1_000n * USD);
+      expect(await yes0.totalSupply()).to.equal(1_000n * USD);
+      expect(await yes1.totalSupply()).to.equal(0);
+      expect(await yes0.controller()).to.equal(await factory.getAddress());
     });
 
     it("mints and burns sets 1:1 and stays fully collateralised", async () => {

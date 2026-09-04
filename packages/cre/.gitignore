@@ -3,3 +3,4 @@ node_modules/
 *.wasm
 .cre/
 binary/
+.cre_build_tmp.js

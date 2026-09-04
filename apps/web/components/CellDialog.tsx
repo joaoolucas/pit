@@ -257,11 +257,34 @@ function Quick({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {!cell.listed && (
+          <p className="px-4 pt-3 text-[11px] leading-relaxed text-[var(--color-foam-faint)]">
+            {t("cell.unlistedHint")}
+          </p>
+        )}
         <Ticket
           compact
           windowId={cell.windowId}
           outcome={cell.outcome}
-          legs={quotes}
+          legs={
+            cell.listed
+              ? quotes
+              : {
+                  yes: {
+                    side: "yes",
+                    market: "",
+                    askCents: cell.cents,
+                    bidCents: null,
+                  },
+                  no: {
+                    side: "no",
+                    market: "",
+                    askCents: cell.cents == null ? null : 100 - cell.cents,
+                    bidCents: null,
+                  },
+                }
+          }
+          list={cell.listed ? null : { endTs: cell.endTs, strikeE8: cell.strikeE8 }}
           pickedCents={null}
           onRequireRisk={onRequireRisk}
         />

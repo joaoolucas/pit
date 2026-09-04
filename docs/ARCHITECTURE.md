@@ -89,7 +89,10 @@ artifacts so they cannot drift from what was deployed.
 those are `PitSettlementReceiver` and `PitRollReceiver`, which only accept calls
 from the Chainlink Forwarder. The deploy script leaves both roles on the deploy
 key until a Forwarder address exists, so a demo is never blocked on CRE, and
-flipping them is `setSettler` and `setOperator`.
+flipping them is `setSettler` and `setOperator`. On the current testnet
+deployment they are still on the deploy key: a Forwarder needs a deployed
+workflow, which needs deploy access, which Chainlink declined for this account.
+The hedge was written before it was needed and is the reason the board runs.
 
 The safety property that matters is not that the settler is honest — it is that a
 dishonest or absent settler cannot trap money. `voidWindow` is callable by

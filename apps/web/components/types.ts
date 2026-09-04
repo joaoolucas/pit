@@ -12,6 +12,8 @@ import type { RawCellState } from "@/lib/indexer";
 export type BoardCell = {
   id: string;
   windowId: number;
+  /** False when the grid shows a strike the factory has not listed yet. */
+  listed: boolean;
   endTs: number;
   strikeE8: bigint;
   outcome: Outcome;

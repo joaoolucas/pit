@@ -1,0 +1,16 @@
+{
+  "chainId": 10143,
+  "network": "monadTestnet",
+  "deployedAt": "2026-09-04T21:11:21.434Z",
+  "collateral": "0xfe40b0879f328304D96b93EBCA3E10C37C194D5A",
+  "collateralSymbol": "cUSD",
+  "collateralDecimals": 6,
+  "kuruRouter": "0x7EFbE105Ca7415dE98F96622173458ac1c054630",
+  "pitFactory": "0x63711DD855302816d2C8025B8068e1509fDE0Bfb",
+  "settlementReceiver": "0x7B7E22622A75828262087329B634F0e311E01B87",
+  "rollReceiver": "0x1943175c0f5f2Fa8d4641F7FE6a8a309cB2fAc06",
+  "creForwarder": null,
+  "settler": "0x33804DeE3453b0CE9E9fd6Cd597C8dCFE5Cb6EDe",
+  "operator": "0x33804DeE3453b0CE9E9fd6Cd597C8dCFE5Cb6EDe",
+  "startBlock": 59726762
+}

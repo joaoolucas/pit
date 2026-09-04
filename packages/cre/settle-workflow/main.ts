@@ -32,6 +32,18 @@
  *
  * Simulate:  cre workflow simulate settle-workflow --target staging-settings
  */
+/**
+ * One import statement from the SDK, and types inline in it — never a second
+ * `import type { ... } from "@chainlink/cre-sdk"` alongside it.
+ *
+ * The compiler rewrites this file before bundling: it appends
+ * `main().catch(sendErrorResponse)` and injects `sendErrorResponse` into the
+ * last SDK import it finds. If that one is type-only, the name is erased with
+ * the rest of the types and the appended call references nothing. The module
+ * then dies on a ReferenceError at load — during `subscribe`, before any
+ * handler — and the only diagnostic is `wasm trap: unreachable`, because the
+ * error reporter is precisely what went missing.
+ */
 import {
   consensusMedianAggregation,
   cre,
@@ -42,9 +54,9 @@ import {
   ok,
   prepareReportRequest,
   Runner,
+  type HTTPSendRequester,
   type Runtime,
 } from "@chainlink/cre-sdk";
-import type { HTTPSendRequester } from "@chainlink/cre-sdk";
 import {
   bytesToHex,
   decodeFunctionResult,
@@ -56,16 +68,41 @@ import {
   type Address,
 } from "viem";
 
+import { z } from "zod";
+
 import { PIT_FACTORY_ABI } from "./abi";
 import { strikeLadder, upcomingWindowEnds, WINDOW_SECONDS } from "./ladder";
 import { formatE8, parseE8 } from "./price";
+
+const configSchema = z.object({
+  schedule: z.string(),
+  priceUrl: z.string(),
+  underlying: z.string(),
+  evms: z.array(
+    z.object({
+      chainName: z.string(),
+      isTestnet: z.boolean(),
+      pitFactoryAddress: z.string(),
+      receiverAddress: z.string(),
+      gasLimit: z.string(),
+      lookbackWindows: z.number(),
+      maxWindowsPerReport: z.number(),
+      rollReceiverAddress: z.string(),
+      rollGasLimit: z.string(),
+      columns: z.number(),
+      ladderRows: z.number(),
+      ladderStepBps: z.number(),
+      maxOpensPerReport: z.number(),
+    }),
+  ),
+});
 
 type EvmTarget = {
   /** A CRE chain selector name, e.g. "monad-testnet". */
   chainName: string;
   isTestnet: boolean;
-  pitFactoryAddress: Address;
-  receiverAddress: Address;
+  pitFactoryAddress: string;
+  receiverAddress: string;
   gasLimit: string;
   /** How many of the newest windows to scan for stragglers. */
   lookbackWindows: number;
@@ -73,14 +110,13 @@ type EvmTarget = {
   maxWindowsPerReport: number;
 
   /** Where roll reports go. PitRollReceiver, which is the factory's operator. */
-  rollReceiverAddress: Address;
+  rollReceiverAddress: string;
   /**
    * Gas for a roll report, which is a different animal from a settle report:
    * every cell deploys two ERC20s and lists two Kuru markets. Sized from a
-   * measured `onReport` of maxOpensPerReport cells (~3.9m each on Hardhat)
-   * plus a quarter of headroom: 20m, well under Monad's 150m block. The mock
-   * book is a full deploy rather than Kuru's proxy, so this is a ceiling on
-   * the listing half.
+   * measured `onReport` (~3.9m/cell on Hardhat). CRE's default write cap is
+   * 10m, which is the binding constraint — two cells plus headroom fit, four
+   * do not. Monad's block is 150m and is not the thing that would fail first.
    */
   rollGasLimit: string;
   /** Columns kept open ahead of the live one. */
@@ -131,7 +167,7 @@ const onCron = async (runtime: Runtime<Config>): Promise<string> => {
     .callContract(runtime, {
       call: encodeCallMsg({
         from: NO_SENDER,
-        to: target.pitFactoryAddress,
+        to: target.pitFactoryAddress as Address,
         data: encodeFunctionData({
           abi: PIT_FACTORY_ABI,
           functionName: "pendingSettlement",
@@ -202,7 +238,7 @@ const onCron = async (runtime: Runtime<Config>): Promise<string> => {
     .callContract(runtime, {
       call: encodeCallMsg({
         from: NO_SENDER,
-        to: target.pitFactoryAddress,
+        to: target.pitFactoryAddress as Address,
         data: encodeFunctionData({
           abi: PIT_FACTORY_ABI,
           functionName: "missingWindows",
@@ -278,8 +314,6 @@ const initWorkflow = (config: Config) => {
 };
 
 export async function main() {
-  const runner = await Runner.newRunner<Config>();
+  const runner = await Runner.newRunner<Config>({ configSchema });
   await runner.run(initWorkflow);
 }
-
-await main();

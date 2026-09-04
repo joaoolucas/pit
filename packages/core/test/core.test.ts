@@ -38,6 +38,8 @@ import {
   windowEnd,
   windowStart,
   WINDOW_SECONDS,
+  QUOTE_COLUMNS,
+  QUOTE_LADDER_ROWS,
 } from "../src/windows.ts";
 
 /** Money in this file is a float on its way to toFixed(2), so compare to a cent. */
@@ -48,6 +50,12 @@ const close = (actual: number, expected: number, message?: string) =>
 // ---------------------------------------------------------------------------
 // Windows
 // ---------------------------------------------------------------------------
+
+test("the quoted band is the live column plus the next, ATM ± 1", () => {
+  assert.equal(QUOTE_COLUMNS, 2);
+  assert.equal(QUOTE_LADDER_ROWS, 3);
+  assert.equal(QUOTE_LADDER_ROWS % 2, 1);
+});
 
 test("windows snap to five-minute boundaries", () => {
   const noon = 1_788_355_200; // an exact boundary

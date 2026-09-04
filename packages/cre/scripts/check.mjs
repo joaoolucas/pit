@@ -74,9 +74,9 @@ for (const file of ["config.staging.json", "config.production.json"]) {
   }
   if (target.ladderRows % 2 === 0) fail(`${file}: ladderRows must be odd — the middle row is the up/down cell`);
 
-  // 150m, measured on testnet and mainnet. A roll report that cannot fit a
-  // block never lands, and the board empties on schedule.
-  const MONAD_BLOCK_GAS = 150_000_000n;
+  // CRE's default write cap is 10m (ChainWrite evm_gas). A report over that is
+  // dropped by the DON even though it would fit a Monad block (150m).
+  const CRE_WRITE_GAS_CAP = 10_000_000n;
   for (const key of ["gasLimit", "rollGasLimit"]) {
     let n = 0n;
     try {
@@ -86,16 +86,11 @@ for (const file of ["config.staging.json", "config.production.json"]) {
     }
     if (n <= 0n) fail(`${file}: ${key} must be a positive integer`);
   }
-  // 20m is 4 × ~4.0m createWindow plus a quarter of headroom, measured in
-  // PitRollReceiver.test.ts. Going under that is the silent-revert case.
-  const ROLL_GAS_FLOOR = 20_000_000n;
   const rollGas = BigInt(target.rollGasLimit);
-  if (rollGas < ROLL_GAS_FLOOR) {
-    fail(`${file}: rollGasLimit ${rollGas} is below the measured four-cell report with headroom`);
-  } else if (rollGas >= MONAD_BLOCK_GAS) {
-    fail(`${file}: rollGasLimit ${rollGas} does not fit a Monad block (${MONAD_BLOCK_GAS})`);
+  if (rollGas > CRE_WRITE_GAS_CAP) {
+    fail(`${file}: rollGasLimit ${rollGas} exceeds CRE's default write cap (${CRE_WRITE_GAS_CAP})`);
   } else {
-    pass(`${file}: rollGasLimit ${target.rollGasLimit} fits a Monad block`);
+    pass(`${file}: rollGasLimit ${target.rollGasLimit} fits CRE's write cap`);
   }
 
   if (zeros.length > 0) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { GRID_POLL_MS, UNDERLYING } from "@/lib/config";
 import { useClock, useI18n } from "@/lib/i18n";
@@ -13,11 +13,12 @@ import { RiskDialog, useRiskGate } from "./RiskGate";
 import type { BoardCell } from "./types";
 import {
   e8ToUsd,
+  fairProbabilityAbove,
   formatCents,
   Outcome,
+  strikeLadder,
   tickToCents,
   upcomingWindowEnds,
-  visibleStrikes,
   WINDOW_SECONDS,
   type Side,
 } from "@pit/core";
@@ -41,6 +42,8 @@ const FUTURE_COLUMNS = 6;
  * furthest from the money and least likely to be traded, are worth.
  */
 const LADDER_ROWS = 7;
+/** Same fallback the seeder uses when realised vol is missing. Indicative only. */
+const MODEL_VOL = 0.6;
 
 export function Terminal() {
   const { t } = useI18n();
@@ -66,7 +69,7 @@ export function Terminal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Math.floor(now / WINDOW_SECONDS)]);
 
-  const { data, error, loading, updatedAt } = usePolledQuery<{ CellState: RawCellState[] }>(
+  const { data, error, updatedAt } = usePolledQuery<{ CellState: RawCellState[] }>(
     GRID_QUERY,
     {
       endTsFrom: String(columns[0] ?? 0),
@@ -80,15 +83,13 @@ export function Terminal() {
    * Two indexer rows per window — the YES market and the NO market — folded into
    * one tile each, keyed by (expiry, strike).
    */
-  const { cells, allStrikes } = useMemo(() => {
+  const listed = useMemo(() => {
     const byCell = new Map<string, BoardCell>();
-    const strikeSet = new Map<string, bigint>();
 
     for (const row of data?.CellState ?? []) {
       const endTs = Number(row.endTs);
       const strikeE8 = BigInt(row.strikeE8);
       const id = cellId(endTs, strikeE8);
-      strikeSet.set(strikeE8.toString(), strikeE8);
 
       const existing = byCell.get(id);
       const legs: Record<Side, RawCellState | null> = existing
@@ -108,6 +109,7 @@ export function Terminal() {
       byCell.set(id, {
         id,
         windowId: Number(row.windowId),
+        listed: true,
         endTs,
         strikeE8,
         outcome: (row.outcome ?? 0) as Outcome,
@@ -122,45 +124,49 @@ export function Terminal() {
       });
     }
 
-    return {
-      cells: byCell,
-      allStrikes: [...strikeSet.values()].sort((a, b) => (b > a ? 1 : b < a ? -1 : 0)),
-    };
+    return byCell;
   }, [data, t, clock]);
 
   /**
-   * The roller opens a fresh ladder every minute, so an hour of drift leaves far
-   * more strikes on the board than fit — and the far ones are the ones nobody
-   * trades. Show a window around the money, the way a chain does.
-   *
-   * Held still while the price is comfortably inside it. `visibleStrikes`
-   * re-centres on the nearest strike, which means the window slid by a whole row
-   * every fifty dollars — and every row the window slides, the entire board and
-   * the half hour of price drawn beside it jump seventy-two pixels. The reading
-   * stayed correct (the labels move with it) but a chart that teleports while
-   * you are reading it is a chart you stop trusting. It now only re-centres when
-   * the price reaches the outermost row, so the board holds still for a few
-   * hundred dollars at a time.
+   * The ladder is the product, not the index. Unlisted cells stay on the board
+   * so a click can list them; the operator only seeds the ATM band.
    */
-  const held = useRef<bigint[]>([]);
-  const strikes = useMemo(() => {
-    const fresh = visibleStrikes(allStrikes, priceE8, LADDER_ROWS);
-    const previous = held.current;
+  const strikes = useMemo(
+    () => (priceE8 === null ? [] : strikeLadder(priceE8, LADDER_ROWS)),
+    [priceE8],
+  );
 
-    const stillUsable =
-      previous.length === fresh.length &&
-      previous.length > 2 &&
-      priceE8 !== null &&
-      // every row still exists on the board
-      previous.every((strike) => allStrikes.includes(strike)) &&
-      // and the price has not reached the edge of it
-      priceE8 <= previous[1]! &&
-      priceE8 >= previous[previous.length - 2]!;
-
-    if (stillUsable) return previous;
-    held.current = fresh;
-    return fresh;
-  }, [allStrikes, priceE8]);
+  const cells = useMemo(() => {
+    const map = new Map(listed);
+    for (const endTs of columns) {
+      for (const strikeE8 of strikes) {
+        const id = cellId(endTs, strikeE8);
+        if (map.has(id)) continue;
+        const remaining = Math.max(endTs - now, 0);
+        const fair =
+          priceE8 === null ? 0.5 : fairProbabilityAbove(priceE8, strikeE8, remaining, MODEL_VOL);
+        const cents = Math.max(1, Math.min(99, Math.round(fair * 100)));
+        const read = { cents, widthCents: null, crossed: false };
+        map.set(id, {
+          id,
+          windowId: -1,
+          listed: false,
+          endTs,
+          strikeE8,
+          outcome: Outcome.Unresolved,
+          cents,
+          widthCents: null,
+          crossed: false,
+          depth: 0n,
+          makers: 0,
+          volume: 0n,
+          title: describe(t, clock(endTs), strikeE8, read, 0),
+          legs: { yes: null, no: null },
+        });
+      }
+    }
+    return map;
+  }, [listed, columns, strikes, t, clock, now, priceE8]);
 
   /** Move across the trace window, for the header. */
   const changePct = useMemo(() => {
@@ -196,7 +202,7 @@ export function Terminal() {
           the carnival, the instrument keeps its lines. */}
       <main className="min-h-0 flex-1 p-2">
         <section className="panel h-full min-h-0 overflow-hidden rounded-[20px] shadow-[0_6px_0_rgba(20,8,28,0.28)]">
-          {error && !data ? (
+          {strikes.length === 0 && error && !data ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-10 text-center">
               <p className="text-[13px] text-[var(--color-no)]">
                 {t("status.indexer")} · {t("status.down")}
@@ -205,7 +211,7 @@ export function Terminal() {
                 {error.message}
               </p>
             </div>
-          ) : loading && !data ? (
+          ) : strikes.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <span className="label">{t("status.loading")}</span>
             </div>

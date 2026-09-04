@@ -35,7 +35,7 @@ import {
 } from "../../indexer/src/folds";
 import { OUTCOME } from "../../indexer/src/shared";
 
-const PORT = Number(process.env.LOCAL_INDEXER_PORT ?? 8080);
+const PORT = Number(process.env.PORT ?? process.env.LOCAL_INDEXER_PORT ?? 8080);
 const POLL_MS = Number(process.env.LOCAL_INDEXER_POLL ?? 500);
 
 const factoryIface = new Interface([
@@ -59,7 +59,7 @@ async function main() {
   const memory = createMemoryStore();
   const markets = new Set<string>();
 
-  let cursor = deployment.startBlock;
+  let cursor = Number(process.env.LOCAL_INDEXER_START_BLOCK ?? deployment.startBlock);
   console.log(`Local indexer: PitFactory ${deployment.pitFactory} from block ${cursor}`);
 
   const blockTimes = new Map<number, number>();
@@ -252,6 +252,10 @@ async function main() {
       response.setHeader("access-control-allow-origin", "*");
       response.setHeader("access-control-allow-headers", "content-type");
       if (request.method === "OPTIONS") return response.writeHead(204).end();
+      if (request.method === "GET") {
+        response.writeHead(200, { "content-type": "application/json" });
+        return response.end(json({ ok: true, cursor, markets: markets.size }));
+      }
 
       let body = "";
       request.on("data", (chunk) => (body += chunk));
@@ -267,8 +271,8 @@ async function main() {
         }
       });
     })
-    .listen(PORT, () => {
-      console.log(`GraphQL on http://localhost:${PORT}/v1/graphql`);
+    .listen(PORT, "0.0.0.0", () => {
+      console.log(`GraphQL on http://0.0.0.0:${PORT}/v1/graphql`);
       console.log(`Point the app at it: NEXT_PUBLIC_INDEXER_URL=http://localhost:${PORT}/v1/graphql`);
     });
 }

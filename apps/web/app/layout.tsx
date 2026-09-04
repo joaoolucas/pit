@@ -44,7 +44,7 @@ const label = Nunito({
 export const metadata: Metadata = {
   title: "Pit — the five-minute option chain",
   description:
-    "A board of five-minute YES/NO markets on BTC, each listed as a spot pair on Kuru's onchain order book. Indexed by Envio, settled by a Chainlink CRE workflow.",
+    "A board of five-minute YES/NO markets on BTC, each listed as a spot pair on Kuru's onchain order book. Indexed by Envio, settled onchain every five minutes.",
 };
 
 export const viewport: Viewport = {

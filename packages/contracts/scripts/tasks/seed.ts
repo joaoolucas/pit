@@ -16,6 +16,8 @@ import type { ContractTransactionReceipt, Interface } from "ethers";
 import fs from "node:fs";
 import path from "node:path";
 
+import { CHAINS } from "../../../core/src/chain";
+
 import {
   allWindows,
   DEPLOYMENTS_DIR,
@@ -90,7 +92,6 @@ export async function seedBooks(options: SeedOptions = {}): Promise<SeedResult> 
   const quotes = readQuotes();
   const size = contractsToSize(quoteContracts);
   const halfSpread = spreadBps / 20_000; // bps of probability, halved
-
   let quoted = 0;
   let skipped = 0;
 
@@ -116,6 +117,9 @@ export async function seedBooks(options: SeedOptions = {}): Promise<SeedResult> 
 
     // Inventory: one set per contract we might sell, on either leg.
     await ensureInventory(factory, collateral, maker.address, windowId, w, size, decimals);
+    await ensureMargin(maker.address, deployment.collateral, neededFor(size, decimals));
+    await ensureMargin(maker.address, w.yes, neededFor(size, decimals));
+    await ensureMargin(maker.address, w.no, neededFor(size, decimals));
 
     for (const [side, market, token, fair] of [
       ["YES", w.yesMarket, w.yes, fairYes],
@@ -167,6 +171,29 @@ async function topUpFromFaucet(collateral: MockERC20, maker: string, decimals: n
   }
 }
 
+const neededFor = (size: bigint, decimals: number) => (size * 10n ** BigInt(decimals)) / 1_000_000n;
+
+/** Kuru debiting a book now pulls from the margin account, not the market allowance. */
+async function ensureMargin(owner: string, token: string, amount: bigint) {
+  if (network.name === "localhost" || network.name === "hardhat") return;
+  const chainId = Number((await ethers.provider.getNetwork()).chainId);
+  const margin = process.env.KURU_MARGIN_ACCOUNT?.trim() || CHAINS[chainId]?.kuru.marginAccount;
+  if (!margin) return;
+
+  const erc20 = await ethers.getContractAt("MockERC20", token);
+  const account = await ethers.getContractAt(
+    ["function deposit(address,address,uint256)", "function getBalance(address,address) view returns (uint256)"],
+    margin,
+  );
+  const [signer] = await ethers.getSigners();
+  const held: bigint = await account.getBalance(owner, token);
+  if (held >= amount) return;
+  if ((await erc20.allowance(owner, margin)) < amount) {
+    await (await erc20.connect(signer).approve(margin, ethers.MaxUint256)).wait();
+  }
+  await (await account.connect(signer).deposit(owner, token, amount - held)).wait();
+}
+
 /** Mint enough sets that both legs can be sold at the quoted size. */
 async function ensureInventory(
   factory: PitFactory,
@@ -177,7 +204,7 @@ async function ensureInventory(
   size: bigint,
   decimals: number,
 ) {
-  const needed = (size * 10n ** BigInt(decimals)) / 1_000_000n;
+  const needed = neededFor(size, decimals);
   const yes = await ethers.getContractAt("MockERC20", w.yes);
   const held = await yes.balanceOf(maker);
   if (held >= needed) return;

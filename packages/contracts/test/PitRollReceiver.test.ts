@@ -147,31 +147,26 @@ describe("PitRollReceiver", () => {
 
   it("sizes rollGasLimit from a real report, not a guess", async () => {
     // Opening a cell deploys two ERC20s and two Kuru markets. The CRE report's
-    // gas limit is maxOpensPerReport of those, plus headroom, and has to fit a
-    // Monad block (150m, measured on testnet and mainnet). Too low and every
-    // roll report fails silently; too high and it may not fit a block.
-    //
-    // Measured here: 1 cell ~4.01m, 4 cells ~15.57m. Two OutcomeTokens are
-    // 1.20m of that (real bytecode). Two MockKuruOrderBooks are 2.81m — a
-    // ceiling, because Kuru lists with a proxy. Keep `rollGasLimit` in the
-    // CRE configs in lockstep with ROLL_GAS_LIMIT below.
+    // gas limit is maxOpensPerReport of those, plus headroom. CRE's default
+    // write cap is 10m — that is the binding constraint, not Monad's 150m block.
+    // Four cells (~15.6m) miss it; two (~7.9m) plus a quarter of headroom fit.
     const oneTx = await receiver
       .connect(forwarder)
       .onReport("0x", encodeReport(BTC_USD, WINDOW, [ends[0]!], [strikes[0]!]));
     const oneGas = (await oneTx.wait())!.gasUsed;
 
-    const fourEnds = [ends[1]!, ends[1]!, ends[1]!, ends[1]!];
-    const fourStrikes = [64_000n, 65_000n, 66_000n, 67_000n].map((s) => s * E8);
-    const fourTx = await receiver
+    const twoEnds = [ends[1]!, ends[1]!];
+    const twoStrikes = [64_000n, 65_000n].map((s) => s * E8);
+    const twoTx = await receiver
       .connect(forwarder)
-      .onReport("0x", encodeReport(BTC_USD, WINDOW, fourEnds, fourStrikes));
-    const fourGas = (await fourTx.wait())!.gasUsed;
+      .onReport("0x", encodeReport(BTC_USD, WINDOW, twoEnds, twoStrikes));
+    const twoGas = (await twoTx.wait())!.gasUsed;
 
-    const ROLL_GAS_LIMIT = 20_000_000n; // 4 × ~4.0m, plus a quarter of headroom
+    const ROLL_GAS_LIMIT = 10_000_000n; // CRE's default ChainWrite evm_gas cap
     const MONAD_BLOCK_GAS = 150_000_000n;
 
-    expect(fourGas).to.be.gt(oneGas);
-    expect((fourGas * 125n) / 100n).to.be.lte(ROLL_GAS_LIMIT);
+    expect(twoGas).to.be.gt(oneGas);
+    expect((twoGas * 125n) / 100n).to.be.lte(ROLL_GAS_LIMIT);
     expect(ROLL_GAS_LIMIT).to.be.lt(MONAD_BLOCK_GAS);
   });
 });

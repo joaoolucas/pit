@@ -6,17 +6,17 @@
     {
       "chainName": "monad-testnet",
       "isTestnet": true,
-      "pitFactoryAddress": "0x0000000000000000000000000000000000000000",
-      "receiverAddress": "0x0000000000000000000000000000000000000000",
+      "pitFactoryAddress": "0x63711DD855302816d2C8025B8068e1509fDE0Bfb",
+      "receiverAddress": "0x7B7E22622A75828262087329B634F0e311E01B87",
       "gasLimit": "1500000",
       "lookbackWindows": 60,
       "maxWindowsPerReport": 12,
-      "rollReceiverAddress": "0x0000000000000000000000000000000000000000",
-      "rollGasLimit": "20000000",
-      "columns": 8,
-      "ladderRows": 7,
+      "rollReceiverAddress": "0x1943175c0f5f2Fa8d4641F7FE6a8a309cB2fAc06",
+      "rollGasLimit": "10000000",
+      "columns": 2,
+      "ladderRows": 3,
       "ladderStepBps": 5,
-      "maxOpensPerReport": 4
+      "maxOpensPerReport": 6
     }
   ]
 }

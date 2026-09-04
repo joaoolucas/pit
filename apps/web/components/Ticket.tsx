@@ -6,7 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CELL_POLL_MS } from "@/lib/config";
 import { useI18n } from "@/lib/i18n";
 import { MY_ORDERS_QUERY, usePolledQuery, type RawOrder } from "@/lib/indexer";
-import { cancelOrders, mintSet, placeLimit, redeem } from "@/lib/kuru";
+import { UNDERLYING } from "@/lib/config";
+import { cancelOrders, ensureWindow, mintSet, placeLimit, redeem } from "@/lib/kuru";
 import { formatUnits, useCollateral } from "@/lib/useCollateral";
 import { useWallet } from "@/lib/wallet";
 import {
@@ -16,6 +17,7 @@ import {
   priceTicket,
   sizeToContracts,
   tickToCents,
+  WINDOW_SECONDS,
   type Side,
 } from "@pit/core";
 
@@ -35,6 +37,8 @@ type Props = {
   windowId: number;
   outcome: Outcome;
   legs: Record<Side, LegQuote | null>;
+  /** Unlisted cell: first order deploys the two Kuru books. */
+  list?: { endTs: number; strikeE8: bigint } | null;
   /** Set when a price is clicked in the book, so Make can join or lift it. */
   pickedCents: number | null;
   onRequireRisk: () => Promise<boolean>;
@@ -71,6 +75,7 @@ export function Ticket({
   windowId,
   outcome,
   legs,
+  list = null,
   pickedCents,
   onRequireRisk,
   compact = false,
@@ -86,8 +91,16 @@ export function Ticket({
   const [makeCents, setMakeCents] = useState("50");
   const [makeSize, setMakeSize] = useState("200");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [opened, setOpened] = useState<{
+    windowId: number;
+    yesMarket: string;
+    noMarket: string;
+  } | null>(null);
 
-  const leg = legs[side];
+  const liveWindowId = opened?.windowId ?? windowId;
+  const liveMarket =
+    (side === "yes" ? opened?.yesMarket : opened?.noMarket) || legs[side]?.market || "";
+  const leg = liveMarket ? { ...legs[side], market: liveMarket, side } : legs[side];
   const settled = outcome !== Outcome.Unresolved;
 
   // Clicking a level in the book is the fastest way to join it or lift it.
@@ -132,12 +145,35 @@ export function Ticket({
     return true;
   };
 
+  const openIfNeeded = async (signer: ethers.Signer) => {
+    if (liveMarket) return { market: liveMarket, windowId: liveWindowId };
+    if (!list) throw new Error("no market");
+    setStatus({ kind: "busy", label: t("ticket.listing") });
+    const listed = await ensureWindow(signer, {
+      underlying: UNDERLYING,
+      startTs: list.endTs - WINDOW_SECONDS,
+      endTs: list.endTs,
+      strikeE8: list.strikeE8,
+    });
+    setOpened({
+      windowId: listed.windowId,
+      yesMarket: listed.yesMarket,
+      noMarket: listed.noMarket,
+    });
+    return {
+      market: side === "yes" ? listed.yesMarket : listed.noMarket,
+      windowId: listed.windowId,
+    };
+  };
+
   const take = async () => {
     if (!leg || leg.askCents == null || !takeTicket) return;
     if (!(await guard(t("ticket.sending")))) return;
     try {
-      await placeLimit(wallet.getSigner(), {
-        market: leg.market,
+      const signer = wallet.getSigner();
+      const { market } = await openIfNeeded(signer);
+      await placeLimit(signer, {
+        market,
         // Cross the offer. Anything not filled rests at the same price, which is
         // the honest outcome of a limit that reached the far side.
         price: (leg.askCents / 100).toFixed(3),
@@ -160,11 +196,13 @@ export function Ticket({
   };
 
   const post = async (isBuy: boolean) => {
-    if (!leg || !makeNumbers) return;
+    if (!makeNumbers) return;
     if (!(await guard(t("ticket.posting")))) return;
     try {
-      await placeLimit(wallet.getSigner(), {
-        market: leg.market,
+      const signer = wallet.getSigner();
+      const { market } = await openIfNeeded(signer);
+      await placeLimit(signer, {
+        market,
         price: (makeNumbers.cents / 100).toFixed(3),
         size: String(makeNumbers.size),
         isBuy,
@@ -185,12 +223,12 @@ export function Ticket({
   };
 
   const cancelAll = async () => {
-    if (!leg || myOrders.length === 0) return;
+    if (!liveMarket || myOrders.length === 0) return;
     setStatus({ kind: "busy", label: t("ticket.cancelling") });
     try {
       await cancelOrders(
         wallet.getSigner(),
-        leg.market,
+        liveMarket,
         myOrders.map((order) => order.orderId),
       );
       setStatus({ kind: "ok", message: t("ticket.cancelled") });
@@ -205,7 +243,9 @@ export function Ticket({
     if (!(await guard(t("ticket.minting")))) return;
     try {
       const amount = ethers.utils.parseUnits(String(makeNumbers.size), collateral.decimals);
-      await mintSet(wallet.getSigner(), windowId, amount);
+      const signer = wallet.getSigner();
+      const openedWindow = await openIfNeeded(signer);
+      await mintSet(signer, openedWindow.windowId, amount);
       setStatus({ kind: "ok", message: t("ticket.minted", { size: makeNumbers.size }) });
     } catch (error) {
       setStatus({ kind: "error", message: cleanRevert(error) });
@@ -215,7 +255,7 @@ export function Ticket({
   const claim = async () => {
     setStatus({ kind: "busy", label: t("ticket.redeeming") });
     try {
-      await redeem(wallet.getSigner(), windowId);
+      await redeem(wallet.getSigner(), liveWindowId);
       setStatus({ kind: "ok", message: t("ticket.redeemed") });
     } catch (error) {
       setStatus({ kind: "error", message: cleanRevert(error) });

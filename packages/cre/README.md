@@ -74,7 +74,7 @@ echo "CRE_ETH_PRIVATE_KEY=<64 hex chars, no 0x>" >> .env
 # 3. simulate — compiles to WASM and runs locally against real RPCs and HTTP
 npm run simulate
 
-# 4. deploy and activate
+# 4. deploy and activate — needs deploy access on the account (cre account access)
 npm run deploy
 npm run activate
 ```
@@ -82,6 +82,14 @@ npm run activate
 `npm run simulate` is the one to run in front of a judge: it makes the real
 `pendingSettlement` and `missingWindows` calls against Monad testnet, the real
 HTTP fetch to Coinbase, and prints the reports it would have written.
+
+Steps 0 through 3 pass today. Step 4 does not run: `cre workflow deploy`
+requires deploy access, which Chainlink grants per account, and ours was
+declined. Everything upstream of the Forwarder is therefore exercised for real —
+the WASM compiles, the DON's median consensus runs over the price fetch, both
+factory reads answer from the deployed contracts, and both reports get built and
+signed — while the one unproven step is a DON broadcasting them. The simulator
+reports a write as `tx 0x`, which is how you can tell nothing was broadcast.
 
 ## Wiring the Forwarder
 

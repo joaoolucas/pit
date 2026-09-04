@@ -27,6 +27,17 @@ export const DEFAULT_COLUMNS = 8;
 export const DEFAULT_LADDER_ROWS = 7;
 
 /**
+ * How much of the grid the operator actually lists and quotes.
+ *
+ * The UI still paints DEFAULT_COLUMNS × DEFAULT_LADDER_ROWS. Listing every cell
+ * deploys two tokens and two Kuru books, which is not viable as a 5-minute loop.
+ * The live column plus the next, ATM ± one strike, is six markets — enough for
+ * the money and cheap enough to keep open. A click lists a wing.
+ */
+export const QUOTE_COLUMNS = 2;
+export const QUOTE_LADDER_ROWS = 3;
+
+/**
  * Row spacing, in basis points of spot.
  *
  * Chosen against the actual distribution rather than for round numbers: at a 30%

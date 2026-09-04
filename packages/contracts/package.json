@@ -19,6 +19,8 @@
     "export:abi": "hardhat run scripts/export-abi.ts",
     "settle:local": "hardhat run scripts/settle.ts --network localhost",
     "indexer:local": "hardhat run scripts/local-indexer.ts --network localhost",
+    "indexer:testnet": "hardhat run scripts/local-indexer.ts --network monadTestnet",
+    "ops": "node scripts/start-ops.mjs",
     "demo:fills": "hardhat run scripts/demo-fills.ts --network monadTestnet",
     "demo:fills:local": "hardhat run scripts/demo-fills.ts --network localhost",
     "tick": "hardhat run scripts/tick.ts --network monadTestnet",

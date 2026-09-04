@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "npm run dev -w @pit/web",
     "build": "npm run build -w @pit/web",
+    "start": "npm run start -w @pit/web",
     "lint": "npm run lint -w @pit/web",
     "typecheck": "npm run typecheck -w @pit/core && npm run typecheck -w @pit/web",
     "contracts:install": "npm --prefix packages/contracts install",

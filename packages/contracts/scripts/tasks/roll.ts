@@ -1,10 +1,9 @@
 /**
  * Keeps the grid full. The fallback for when the CRE workflow is not the operator.
  *
- * Reads spot, builds the strike ladder around it, and opens every (column, row)
- * cell in the next `columns` five-minute windows that does not exist yet. Safe to
- * run every minute: `findWindow` makes it idempotent, so a re-run costs one
- * static call per cell and nothing else. Once `setOperator` points at
+ * Default is list-on-trade: COLUMNS=0, so this pass does not open cells.
+ * Set COLUMNS=2 to pre-list the ATM band. Safe to run every minute:
+ * `findWindow` makes it idempotent. Once `setOperator` points at
  * PitRollReceiver this reports that and does nothing, which is the correct
  * steady state — the same treatment settlement already has.
  */
@@ -12,9 +11,8 @@ import { ethers, network } from "hardhat";
 
 import { fetchSpotE8, nowSeconds, readDeployment, usd } from "../lib";
 import {
-  DEFAULT_COLUMNS,
-  DEFAULT_LADDER_ROWS,
   DEFAULT_LADDER_STEP_BPS,
+  QUOTE_LADDER_ROWS,
   ladderStepUsd,
   strikeLadder,
   upcomingWindowEnds,
@@ -43,8 +41,9 @@ export async function rollWindows(options: RollOptions = {}): Promise<RollResult
   const label = options.underlying ?? process.env.UNDERLYING ?? "BTC-USD";
   const underlying = ethers.keccak256(ethers.toUtf8Bytes(label));
 
-  const columns = options.columns ?? Number(process.env.COLUMNS ?? DEFAULT_COLUMNS);
-  const rows = options.rows ?? Number(process.env.ROWS ?? DEFAULT_LADDER_ROWS);
+  // 0 = list-on-trade: the operator does not open cells. A click/order does.
+  const columns = options.columns ?? Number(process.env.COLUMNS ?? 0);
+  const rows = options.rows ?? Number(process.env.ROWS ?? QUOTE_LADDER_ROWS);
   const stepBps = options.stepBps ?? Number(process.env.STEP_BPS ?? DEFAULT_LADDER_STEP_BPS);
 
   const deployment = readDeployment();

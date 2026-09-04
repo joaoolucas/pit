@@ -12,11 +12,11 @@
       "lookbackWindows": 60,
       "maxWindowsPerReport": 12,
       "rollReceiverAddress": "0x0000000000000000000000000000000000000000",
-      "rollGasLimit": "20000000",
-      "columns": 8,
-      "ladderRows": 7,
+      "rollGasLimit": "10000000",
+      "columns": 2,
+      "ladderRows": 3,
       "ladderStepBps": 5,
-      "maxOpensPerReport": 4
+      "maxOpensPerReport": 6
     }
   ]
 }

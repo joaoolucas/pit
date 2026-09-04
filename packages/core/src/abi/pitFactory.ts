@@ -842,6 +842,45 @@ export const pitFactoryAbi = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "underlying",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64[]",
+        "name": "ends",
+        "type": "uint64[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "strikeE8s",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxResults",
+        "type": "uint256"
+      }
+    ],
+    "name": "missingWindows",
+    "outputs": [
+      {
+        "internalType": "uint64[]",
+        "name": "outEnds",
+        "type": "uint64[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "outStrikes",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "operator",
     "outputs": [

@@ -165,7 +165,9 @@ Opened 4 cell(s) — tx 0x…
 ```
 
 To make it live, `cre workflow deploy` and `cre workflow activate`, then hand
-both roles over:
+both roles over. Both commands need deploy access on the account, which
+Chainlink grants by request and declined for ours — so this is the part of the
+runbook that has not been executed, and the board keeps running on `tick`:
 
 ```solidity
 receiver.setForwarder(<the Forwarder for your DON>);

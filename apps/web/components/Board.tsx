@@ -573,6 +573,9 @@ function Tile({
   const settled = cell.outcome !== Outcome.Unresolved;
   const cents = cell.cents;
   const ink = tileInk(settled ? null : cents, cell.depth, maxDepth);
+  // Model cells have no resting size; still paint the side so the chain reads
+  // like it used to when every tile had a quote.
+  if (!settled && cents !== null && ink.presence === 0) ink.presence = 0.45;
 
   return (
     <button

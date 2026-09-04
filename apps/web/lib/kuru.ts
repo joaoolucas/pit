@@ -114,6 +114,60 @@ export async function redeem(signer: ethers.Signer, windowId: number | string) {
   return tx.wait();
 }
 
+export type ListedWindow = {
+  windowId: number;
+  yes: string;
+  no: string;
+  yesMarket: string;
+  noMarket: string;
+};
+
+/** List a cell if it is missing. The signer pays the two Kuru deploys. */
+export async function ensureWindow(
+  signer: ethers.Signer,
+  args: { underlying: string; startTs: number; endTs: number; strikeE8: bigint },
+): Promise<ListedWindow> {
+  const factory = pitFactory(signer);
+  const underlying = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(args.underlying));
+  const found = await factory.findWindow(underlying, args.endTs, args.strikeE8);
+  const exists = Boolean(found.exists ?? found[0]);
+  const id = found.id ?? found[1];
+  if (exists) {
+    const w = await factory.getWindow(id);
+    return {
+      windowId: Number(id),
+      yes: w.yes,
+      no: w.no,
+      yesMarket: w.yesMarket,
+      noMarket: w.noMarket,
+    };
+  }
+  const tx = await factory.createWindow(underlying, args.startTs, args.endTs, args.strikeE8);
+  const receipt = await tx.wait();
+  return parseWindowCreated(receipt);
+}
+
+function parseWindowCreated(receipt: ethers.ContractReceipt): ListedWindow {
+  const iface = new ethers.utils.Interface(pitFactoryAbi as never);
+  for (const log of receipt.logs) {
+    try {
+      const parsed = iface.parseLog(log);
+      if (parsed.name === "WindowCreated") {
+        return {
+          windowId: parsed.args.windowId.toNumber(),
+          yes: parsed.args.yes,
+          no: parsed.args.no,
+          yesMarket: parsed.args.yesMarket,
+          noMarket: parsed.args.noMarket,
+        };
+      }
+    } catch {
+      /* other contracts in the same tx */
+    }
+  }
+  throw new Error("WindowCreated missing from receipt");
+}
+
 async function collateralOf(signer: ethers.Signer): Promise<string> {
   return pitFactory(signer).collateralToken();
 }
