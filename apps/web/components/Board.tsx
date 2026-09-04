@@ -621,10 +621,7 @@ function Tile({
           {t("board.crossed")}
         </span>
       ) : cents === null ? (
-        // "–" made an unquoted market look like a rendering gap. It is a market
-        // with nobody on either side, and the legend already promises that a
-        // hollow tile means exactly that — so it may as well say it.
-        <span className="label text-[9px] leading-none">{t("board.noDepth")}</span>
+        null
       ) : (
         <>
           <span
@@ -1184,9 +1181,7 @@ function CellCard({ cell, rect, now }: { cell: BoardCell; rect: DOMRect; now: nu
           : t("board.cardLeft", { clock: formatClock(remaining) })}
       </p>
 
-      {yes === null && no === null ? (
-        <p className="label mt-2">{t("board.noDepth")}</p>
-      ) : (
+      {yes === null && no === null ? null : (
         <>
           <div className="mt-2 flex items-baseline justify-between gap-2">
             <Leg side="yes" cents={yes} />
